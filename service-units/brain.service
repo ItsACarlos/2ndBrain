@@ -1,0 +1,17 @@
+[Unit]
+Description=2ndBrain Slack Listener
+After=network.target rclone-2ndbrain.service
+
+[Service]
+Type=simple
+# Ensure these match your environment
+Environment=SLACK_BOT_TOKEN={{SLACK_BOT_TOKEN}}
+Environment=SLACK_APP_TOKEN={{SLACK_APP_TOKEN}}
+Environment=GEMINI_API_KEY={{GEMINI_API_KEY}}
+Environment=PYTHONUNBUFFERED=1
+ExecStart=%h/2nd_brain/.venv/bin/python %h/2nd_brain/scripts/brain.py
+Restart=always
+
+[Install]
+WantedBy=default.target
+

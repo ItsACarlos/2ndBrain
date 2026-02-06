@@ -2,50 +2,50 @@
 import os
 import re
 import json
+import logging
 from datetime import datetime
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 import google.generativeai as genai
 from dotenv import load_dotenv
+from pathlib import Path
 
-# 1. Setup & Environment
+
+# 1. Setup & Configuration
 load_dotenv()
-VAULT_PATH = os.path.expanduser("~/Documents/2ndBrain/2ndBrainVault")
-os.makedirs(VAULT_PATH, exist_ok=True)
+BASE_VAULT_PATH = Path.home() / "Documents" / "2ndBrain"
+# Ensure our core directories exist
+for folder in ["Inbox", "Projects", "Actions", "Ideas", "Media"]:
+    (BASE_VAULT_PATH / folder).mkdir(parents=True, exist_ok=True)
 
+# Initialize AI
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
 def process_with_gemini(raw_text):
-    # Using the 2026 stable workhorse model
+    """
+    Categorizes the note into folders and cleans up the Markdown content.
+    """
     model = genai.GenerativeModel('gemini-2.5-flash')
 
-    prompt = f"""
-    System: Expert Knowledge Management Assistant for an Obsidian Vault.
-    Task: Convert the Slack message into a structured Markdown note.
-
-    Instructions:
-    - Generate a slugified filename: 'capture-YYYYMMDD-HHmm.md'.
-    - Create a YAML frontmatter with: date, source: slack, and tags.
-    - Sanitize Slack's link format <URL|NAME> into [NAME](URL).
-    - If it's a list or task, use proper Markdown syntax.
-
-    Input Message: "{raw_text}"
-
-    Response Format: Return ONLY a raw JSON object with keys "filename" and "content".
-    """
+    # Prompt reflects the logic defined in your AGENTS.md
+    prompt_file = Path(__file__).parent / "slack_prompt.md"
+    prompt = prompt_file.read_text() + f"\n\nInput:\n{raw_text}"
 
     response = model.generate_content(prompt)
 
-    # Token Tracking
+    # Extract Token Usage for your frontmatter
     usage = response.usage_metadata
     tokens = usage.total_token_count
 
-    # Extract JSON from potential markdown blocks
-    json_str = re.search(r'\{.*\}', response.text, re.DOTALL).group()
-    data = json.loads(json_str)
+    # Extract JSON string from response
+    json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
+    if not json_match:
+        raise ValueError("AI failed to return a valid JSON object.")
 
-    # Inject token usage into the Markdown content's frontmatter
+    data = json.loads(json_match.group())
+
+    # Inject token usage into the content's YAML frontmatter
     data['content'] = data['content'].replace(
         "tags:", f"tokens_used: {tokens}\ntags:"
     )
@@ -54,27 +54,37 @@ def process_with_gemini(raw_text):
 
 @app.event("message")
 def handle_message(event, say):
-    # Filter out bots and subtypes (joins/leaves)
+    # Ignore bot messages and channel joins/leaves
     if event.get("subtype") or event.get("bot_id"):
         return
 
     text = event.get("text")
-    user_id = event.get("user")
+    print(f"📥 Incoming from Slack: {text[:50]}...")
 
     try:
+        # The AI "Refiner" Step
         data, token_count = process_with_gemini(text)
-        file_path = os.path.join(VAULT_PATH, data['filename'])
 
+        # Determine final file path
+        target_folder = BASE_VAULT_PATH / data['folder']
+        file_path = target_folder / data['filename']
+
+        # Write the file
         with open(file_path, "w") as f:
             f.write(data['content'])
 
-        print(f"[{datetime.now()}] Filed: {data['filename']} | Tokens: {token_count}")
-        say(f"✅ Filed as `{data['filename']}`. Usage: {token_count} tokens.")
+        # Logging to journalctl
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Filed to {data['folder']}/{data['filename']} ({token_count} tokens)")
+
+        # Feedback to user in Slack
+        say(f"📂 Filed to `{data['folder']}` as `{data['filename']}`. (Used {token_count} tokens)")
 
     except Exception as e:
-        print(f"Error processing message: {e}")
-        say(f"⚠️ Error: Failed to process that note.")
+        error_msg = f"Error processing message: {str(e)}"
+        print(error_msg)
+        say(f"⚠️ Brain Error: {str(e)}")
 
 if __name__ == "__main__":
+    print("⚡️ 2ndBrain Collector is starting up...")
     handler = SocketModeHandler(app, os.environ.get("SLACK_APP_TOKEN"))
     handler.start()

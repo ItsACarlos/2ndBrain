@@ -157,6 +157,9 @@ EOF
 # Create the mount point directory
 mkdir -p ~/Documents/2ndBrain
 
+# Enable lingering to allow service to run on boot without login
+sudo loginctl enable-linger $USER
+
 # Reload systemd and start the service
 systemctl --user daemon-reload
 systemctl --user enable --now rclone-2ndbrain.service
