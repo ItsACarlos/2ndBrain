@@ -23,7 +23,8 @@ Otherwise, classify the input into exactly ONE of the following categories:
 - If related to a project, set `project` as an Obsidian wiki-link
   `"[[project-name]]"`.
 - **Frontmatter fields:** `action_item` (short summary), `due_date`
-  (YYYY-MM-DD or empty), `project`, `status: todo`, `priority` (high/medium/low)
+  (YYYY-MM-DD HH:MM or YYYY-MM-DD if no time known, or empty), `project`,
+  `status: todo`, `priority` (high/medium/low)
 
 ## Media
 - Books, films, TV shows, podcasts, articles, YouTube videos, web pages

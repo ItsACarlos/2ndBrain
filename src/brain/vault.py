@@ -410,7 +410,7 @@ class Vault:
             "Actions/Actions.base": self._actions_base(),
             "Media/Media.base": self._media_base(),
             "Reference/Reference.base": self._reference_base(),
-            "Dashboard.base": self._dashboard_base(),
+            "_brain/Dashboard.base": self._dashboard_base(),
             "Dashboard.md": self._dashboard_md(),
         }
 
@@ -561,6 +561,8 @@ properties:
     displayName: Due Date
   priority:
     displayName: Priority
+  project:
+    displayName: Project
   date:
     displayName: Date
 views:
@@ -573,9 +575,10 @@ views:
         - 'status != "completed"'
     order:
       - file.name
-      - note.priority
       - note.due_date
+      - note.priority
       - note.status
+      - note.project
   - type: table
     name: Recent Captures
     filters:
@@ -585,6 +588,7 @@ views:
       - file.name
       - file.mtime
       - note.category
+      - note.project
   - type: table
     name: All Open Actions
     filters:
@@ -596,22 +600,16 @@ views:
       - file.name
       - note.due_date
       - note.priority
+      - note.status
+      - note.project
 """
 
     @staticmethod
     def _dashboard_md() -> str:
         """Generate a Dashboard.md that embeds the base and category views."""
         return """\
----
-title: Dashboard
-tags:
-  - dashboard
-  - index
----
 
-# Dashboard
-
-![[Dashboard.base]]
+![[_brain/Dashboard.base]]
 
 > [!abstract]- Projects
 > ![[Projects/Projects.base]]
