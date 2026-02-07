@@ -108,18 +108,30 @@ Messages flow through a two-stage pipeline:
    automatically updates the classification.
 
 2. **Agent** (`agents/<name>.py`): The matched agent receives a
-   `MessageContext` (raw text, attachments, vault reference, and extra
-   data from the router) and returns an `AgentResult` (Slack reply text
-   and/or a filed path).
+   `MessageContext` (raw text, attachments, vault reference, thread
+   history, and extra data from the router) and returns an `AgentResult`
+   (Slack reply text and/or a filed path).
+
+### Conversation Context (Thread Follow-ups)
+
+When a message arrives in a Slack thread, `listener.py` fetches up to
+10 prior messages via `conversations.replies` and passes them as
+`thread_history` on `MessageContext`. Both the router and all agents
+include this history in their prompts, enabling natural follow-up
+questions like:
+
+- "What YouTube videos did I file this week?" → answer
+- (reply in thread) "What about podcasts?" → understands context
 
 ### Message Flow
 ```
-Slack message → listener.py (attachment prep)
+Slack message → listener.py (attachment prep + thread history fetch)
   → Router._classify()  — lightweight Gemini call → intent JSON
   → intent == "question"  → direct answer (no second call)
   → intent == "file"      → FilingAgent.handle()  → save to vault
   → intent == "vault_query" → VaultQueryAgent.handle() → search + answer
   → intent == <new agent> → YourAgent.handle()
+  ← reply posted in-thread (if message was threaded)
 ```
 
 ### Registered Agents

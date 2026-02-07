@@ -11,7 +11,7 @@ registered agents' descriptions, so new agents are automatically
 included in intent routing.
 """
 
-from .base import AgentResult, BaseAgent, MessageContext
+from .base import AgentResult, BaseAgent, MessageContext, format_thread_history
 from .router import Router
 
-__all__ = ["BaseAgent", "AgentResult", "MessageContext", "Router"]
+__all__ = ["BaseAgent", "AgentResult", "MessageContext", "Router", "format_thread_history"]

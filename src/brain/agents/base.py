@@ -24,6 +24,9 @@ class MessageContext:
     attachment_context: list
     vault: Vault
     router_data: dict = field(default_factory=dict)
+    thread_history: list[dict] = field(default_factory=list)
+    """Prior messages in this Slack thread (oldest first).
+    Each dict has keys: role ('user' | 'assistant'), text (str)."""
 
 
 @dataclass
@@ -71,3 +74,20 @@ class BaseAgent(ABC):
             AgentResult with response text and/or a filed path.
         """
         ...
+
+
+def format_thread_history(thread_history: list[dict]) -> str:
+    """Format thread history into a prompt section.
+
+    Returns an empty string if there is no history, or a
+    ``## Conversation History`` block with labelled turns.
+    """
+    if not thread_history:
+        return ""
+
+    lines = ["\n## Conversation History"]
+    for msg in thread_history:
+        label = "User" if msg["role"] == "user" else "Assistant"
+        lines.append(f"**{label}:** {msg['text']}")
+    lines.append("")  # trailing newline
+    return "\n".join(lines)

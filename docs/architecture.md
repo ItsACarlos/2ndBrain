@@ -25,6 +25,31 @@ flowchart TD
     G --> I
 ```
 
+## Conversation Context (Thread Follow-ups)
+
+When a message arrives in a Slack thread, `listener.py` automatically
+fetches up to 10 prior messages via the Slack `conversations.replies`
+API. These are passed as `thread_history` on `MessageContext` — a list
+of `{"role": "user"|"assistant", "text": "..."}` dicts, oldest first.
+
+Both the router and all agents include this history as a
+`## Conversation History` section in their prompts, enabling natural
+multi-turn conversations:
+
+- "What YouTube videos did I file this week?" → vault query answer
+- *(reply in thread)* "What about podcasts?" → the agent sees the prior
+  exchange and understands "what about" means "filed this week"
+
+Replies from the bot are always posted in-thread when the incoming
+message was threaded, keeping conversations grouped.
+
+| Property | Value |
+|----------|-------|
+| Storage | Slack threads (fetched via API, not stored locally) |
+| Lifetime | Thread lifetime |
+| Scope | Per-conversation |
+| Cap | 10 most recent messages |
+
 ## Two-Stage Pipeline
 
 ### Stage 1 — Router (`agents/router.py`)
@@ -48,12 +73,13 @@ avoiding a second Gemini call entirely.
 
 The matched agent receives a `MessageContext` containing:
 
-| Field                | Type   | Description                                    |
-|----------------------|--------|------------------------------------------------|
-| `raw_text`           | `str`  | The original Slack message text                |
-| `attachment_context` | `list` | Prompt parts — strings and binary data         |
-| `vault`              | `Vault`| Vault instance for reading/writing notes       |
-| `router_data`        | `dict` | Extra fields from the router's classification  |
+| Field                | Type          | Description                                    |
+|----------------------|---------------|------------------------------------------------|
+| `raw_text`           | `str`         | The original Slack message text                |
+| `attachment_context` | `list`        | Prompt parts — strings and binary data         |
+| `vault`              | `Vault`       | Vault instance for reading/writing notes       |
+| `router_data`        | `dict`        | Extra fields from the router's classification  |
+| `thread_history`     | `list[dict]`  | Prior messages in this Slack thread            |
 
 The agent returns an `AgentResult`:
 

@@ -14,7 +14,7 @@ from pathlib import Path
 from google import genai
 
 from ..processor import _extract_json
-from .base import AgentResult, BaseAgent, MessageContext
+from .base import AgentResult, BaseAgent, MessageContext, format_thread_history
 
 ROUTER_PROMPT_FILE = Path(__file__).parent / "router_prompt.md"
 
@@ -85,6 +85,11 @@ class Router:
         ).replace("{{current_time}}", datetime.now().strftime("%Y-%m-%d %H:%M"))
 
         parts: list = [prompt, f"\n## User Message\n{context.raw_text}"]
+
+        # Include conversation history for follow-up context
+        thread_section = format_thread_history(context.thread_history)
+        if thread_section:
+            parts.insert(1, thread_section)
 
         # Include text descriptions of attachments for routing (not
         # binary data — that is reserved for the handling agent).

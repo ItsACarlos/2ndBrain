@@ -11,7 +11,7 @@ from datetime import datetime
 
 from google import genai
 
-from .base import AgentResult, BaseAgent, MessageContext
+from .base import AgentResult, BaseAgent, MessageContext, format_thread_history
 
 
 class VaultQueryAgent(BaseAgent):
@@ -68,7 +68,7 @@ class VaultQueryAgent(BaseAgent):
         # Build a compact representation of each match
         note_summaries = self._format_matches(matches)
 
-        prompt = self._build_prompt(question, note_summaries, context.raw_text)
+        prompt = self._build_prompt(question, note_summaries, context)
 
         try:
             response = self.client.models.generate_content(
@@ -125,7 +125,7 @@ class VaultQueryAgent(BaseAgent):
         return "\n".join(lines)
 
     def _build_prompt(
-        self, question: str, note_summaries: str, original_text: str
+        self, question: str, note_summaries: str, context: MessageContext
     ) -> list[str]:
         """Build the vault-query prompt."""
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -145,8 +145,16 @@ class VaultQueryAgent(BaseAgent):
             "return JSON."
         )
 
-        return [
+        parts = [
             system,
             f"\n## Matching Notes\n{note_summaries}",
-            f"\n## Question\n{question}",
         ]
+
+        # Include conversation history for threaded follow-ups
+        thread_section = format_thread_history(context.thread_history)
+        if thread_section:
+            parts.append(thread_section)
+
+        parts.append(f"\n## Question\n{question}")
+
+        return parts

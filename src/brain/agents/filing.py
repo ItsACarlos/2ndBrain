@@ -12,7 +12,7 @@ from pathlib import Path
 from google import genai
 
 from ..processor import _extract_json, _inject_tokens
-from .base import AgentResult, BaseAgent, MessageContext
+from .base import AgentResult, BaseAgent, MessageContext, format_thread_history
 
 FILING_PROMPT_FILE = Path(__file__).parent.parent / "prompt.md"
 
@@ -115,6 +115,11 @@ class FilingAgent(BaseAgent):
             f"\n## Context\n{context_text}",
             f"\n## Input\n{context.raw_text}",
         ]
+
+        # Include conversation history for threaded follow-ups
+        thread_section = format_thread_history(context.thread_history)
+        if thread_section:
+            parts.insert(2, thread_section)
 
         if context.attachment_context:
             parts.extend(context.attachment_context)
