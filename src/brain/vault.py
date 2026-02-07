@@ -219,6 +219,68 @@ class Vault:
         return results
 
     # ------------------------------------------------------------------
+    # Vault search (used by agents)
+    # ------------------------------------------------------------------
+
+    def search_notes(
+        self,
+        keywords: list[str] | None = None,
+        folders: list[str] | None = None,
+        max_results: int = 30,
+    ) -> list[dict]:
+        """
+        Search vault notes by keyword and/or folder.
+
+        Returns a list of dicts with keys: filename, folder, frontmatter.
+        Keywords are matched case-insensitively against the filename and
+        all frontmatter values.
+
+        Args:
+            keywords: Terms to match in filenames / frontmatter values.
+                      If empty or None, all notes in the target folders
+                      are returned.
+            folders: Category folders to search. None means all folders
+                     (excluding Attachments).
+            max_results: Cap the number of returned matches.
+        """
+        search_folders = folders or [f for f in CATEGORIES if f != "Attachments"]
+        # Validate folder names
+        search_folders = [f for f in search_folders if f in VALID_FOLDERS]
+
+        lower_keywords = [k.lower() for k in (keywords or [])]
+        results: list[dict] = []
+
+        for folder in search_folders:
+            folder_path = self.base_path / folder
+            if not folder_path.exists():
+                continue
+
+            for md_file in folder_path.glob("*.md"):
+                fm = self._parse_frontmatter(md_file) or {}
+
+                if lower_keywords:
+                    # Build searchable text from filename + frontmatter
+                    searchable = md_file.stem.lower()
+                    for v in fm.values():
+                        searchable += " " + str(v).lower()
+
+                    if not any(kw in searchable for kw in lower_keywords):
+                        continue
+
+                results.append(
+                    {
+                        "filename": md_file.name,
+                        "folder": folder,
+                        "frontmatter": fm,
+                    }
+                )
+
+                if len(results) >= max_results:
+                    return results
+
+        return results
+
+    # ------------------------------------------------------------------
     # Frontmatter parsing
     # ------------------------------------------------------------------
 

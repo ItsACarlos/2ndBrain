@@ -2,7 +2,7 @@
 listener.py — Slack event handlers.
 
 Handles incoming messages, downloads attachments,
-delegates to the Gemini processor, and saves results to the vault.
+delegates to the agent router, and replies in Slack.
 """
 
 import logging
@@ -11,6 +11,7 @@ import os
 import requests
 from google.genai import types
 
+from .agents import MessageContext, Router
 from .processor import GEMINI_BINARY_MIMES, TEXT_INLINE_MAX_BYTES, _normalize_mime
 from .vault import Vault
 
@@ -127,14 +128,14 @@ def _process_attachments(files: list[dict], vault: Vault) -> list:
     return parts
 
 
-def register_listeners(app, vault: Vault, processor):
+def register_listeners(app, vault: Vault, router: Router):
     """
     Register Slack event handlers on the given app.
 
     Args:
         app: The slack_bolt App instance.
         vault: Vault instance for file I/O.
-        processor: GeminiProcessor instance.
+        router: Router instance for dispatching messages to agents.
     """
 
     @app.event("message")
@@ -152,23 +153,16 @@ def register_listeners(app, vault: Vault, processor):
             # Process attachments
             attachment_context = _process_attachments(files, vault)
 
-            # Run through Gemini
-            data, token_count, is_answer = processor.process(text, attachment_context)
-
-            if is_answer:
-                say(str(data))
-                return
-
-            # Save the note
-            file_path = vault.save_note(
-                folder=data["folder"],
-                slug=data["slug"],
-                content=data["content"],
+            # Build context and route to the appropriate agent
+            context = MessageContext(
+                raw_text=text,
+                attachment_context=attachment_context,
+                vault=vault,
             )
+            result = router.route(context)
 
-            folder = data["folder"]
-            filename = file_path.name
-            say(f"📂 Filed to `{folder}/` as `{filename}` ({token_count} tokens)")
+            if result.response_text:
+                say(result.response_text)
 
         except Exception as e:
             logging.exception("Error processing message")

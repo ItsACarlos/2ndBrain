@@ -40,10 +40,17 @@ src/brain/
 ├── __main__.py      # python -m src.brain.app entrypoint
 ├── app.py           # Main entrypoint — env validation, component wiring
 ├── listener.py      # Slack event handlers, attachment download/processing
-├── processor.py     # Gemini prompt building, API calls, JSON extraction
+├── processor.py     # Gemini utility functions (JSON extraction, token injection)
 ├── vault.py         # All Obsidian vault I/O, folder management, .base files
 ├── briefing.py      # Daily morning summary posted to Slack
-└── prompt.md        # System prompt sent to Gemini
+├── prompt.md        # System prompt for the filing agent (Gemini)
+└── agents/          # Pluggable agent architecture
+    ├── __init__.py      # Package exports: BaseAgent, AgentResult, MessageContext, Router
+    ├── base.py          # BaseAgent ABC, AgentResult & MessageContext dataclasses
+    ├── router.py        # Intent classifier — dispatches to registered agents
+    ├── router_prompt.md # System prompt for the router's classification call
+    ├── filing.py        # FilingAgent — classifies & archives content to vault
+    └── vault_query.py   # VaultQueryAgent — searches vault & answers questions
 service-units/
 ├── brain.service                   # Slack listener (server, template with @@PROJECT_DIR@@)
 ├── rclone-2ndbrain.service         # rclone FUSE mount (server)
@@ -89,6 +96,76 @@ Notes are filed into exactly one of these folders inside the vault root:
    a project with `#projectname` in their message.
 7. **Permissions:** All commands run as the current user.
    Use `systemctl --user` for service management.
+
+## Pluggable Agent Architecture
+
+Messages flow through a two-stage pipeline:
+
+1. **Router** (`agents/router.py`): A lightweight Gemini call that
+   classifies the user's intent into one of the registered agent names,
+   or `"question"` for simple direct answers. The router prompt is
+   generated dynamically from agent descriptions, so adding an agent
+   automatically updates the classification.
+
+2. **Agent** (`agents/<name>.py`): The matched agent receives a
+   `MessageContext` (raw text, attachments, vault reference, and extra
+   data from the router) and returns an `AgentResult` (Slack reply text
+   and/or a filed path).
+
+### Message Flow
+```
+Slack message → listener.py (attachment prep)
+  → Router._classify()  — lightweight Gemini call → intent JSON
+  → intent == "question"  → direct answer (no second call)
+  → intent == "file"      → FilingAgent.handle()  → save to vault
+  → intent == "vault_query" → VaultQueryAgent.handle() → search + answer
+  → intent == <new agent> → YourAgent.handle()
+```
+
+### Registered Agents
+
+| Intent        | Agent            | Purpose                                     |
+|---------------|------------------|---------------------------------------------|
+| `file`        | `FilingAgent`    | Classify and archive content into the vault |
+| `vault_query` | `VaultQueryAgent`| Search vault notes and answer questions     |
+
+### Adding a New Agent
+
+1. **Create** `src/brain/agents/my_agent.py`:
+
+   ```python
+   from .base import AgentResult, BaseAgent, MessageContext
+
+   class MyAgent(BaseAgent):
+       name = "my_intent"
+       description = "One-line description used in the router prompt."
+
+       def handle(self, context: MessageContext) -> AgentResult:
+           # context.raw_text      — user's message
+           # context.vault         — Vault instance for I/O
+           # context.router_data   — dict from the router (search_terms, etc.)
+           return AgentResult(response_text="Done!")
+   ```
+
+2. **Register** in `app.py`:
+
+   ```python
+   from .agents.my_agent import MyAgent
+   my_agent = MyAgent()
+   router = Router(
+       agents={
+           filing_agent.name: filing_agent,
+           vault_query_agent.name: vault_query_agent,
+           my_agent.name: my_agent,
+       },
+   )
+   ```
+
+3. **Optionally** add extra `router_data` fields by extending the
+   router prompt in `agents/router_prompt.md` with a new intent block.
+
+4. **Update this file** with the new intent in the Registered Agents
+   table above.
 
 ## Gemini Integration Details
 - **Prompt:** Lives in `src/brain/prompt.md` — edit this to change

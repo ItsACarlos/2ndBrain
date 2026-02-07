@@ -15,9 +15,11 @@ from dotenv import load_dotenv
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
+from .agents import Router
+from .agents.filing import FilingAgent
+from .agents.vault_query import VaultQueryAgent
 from .briefing import start_scheduler
 from .listener import register_listeners
-from .processor import GeminiProcessor
 from .vault import Vault
 
 # ---------------------------------------------------------------------------
@@ -53,14 +55,24 @@ def main():
     # Initialise Vault (creates folders + .base files on first run)
     vault = Vault()
 
-    # Initialise processor with knowledge of existing projects
-    processor = GeminiProcessor(existing_projects=vault.list_projects())
+    # Initialise pluggable agents
+    filing_agent = FilingAgent(existing_projects=vault.list_projects())
+    vault_query_agent = VaultQueryAgent()
+
+    # Build the router with registered agents
+    router = Router(
+        agents={
+            filing_agent.name: filing_agent,
+            vault_query_agent.name: vault_query_agent,
+        },
+        default_agent="file",
+    )
 
     # Initialise Slack app
     app = App(token=os.environ["SLACK_BOT_TOKEN"])
 
     # Wire up event handlers
-    register_listeners(app, vault, processor)
+    register_listeners(app, vault, router)
 
     # Start daily briefing scheduler in background thread
     start_scheduler(app.client, vault)
