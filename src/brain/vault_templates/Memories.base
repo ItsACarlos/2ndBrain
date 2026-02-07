@@ -1,0 +1,25 @@
+filters:
+  and:
+    - 'file.inFolder("Memories")'
+    - 'file.ext == "md"'
+properties:
+  people:
+    displayName: People
+  location:
+    displayName: Location
+  memory_date:
+    displayName: When
+  tags:
+    displayName: Tags
+  date:
+    displayName: Captured
+views:
+  - type: table
+    name: All Memories
+    order:
+      - file.name
+      - note.people
+      - note.location
+      - note.memory_date
+      - note.tags
+      - note.date

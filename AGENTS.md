@@ -86,6 +86,7 @@ Notes are filed into exactly one of these folders inside the vault root:
 | Actions       | Tasks/to-dos with due dates and status tracking      |
 | Media         | Books, films, TV, podcasts, articles, videos         |
 | Reference     | How-tos, explanations, technical notes               |
+| Memories      | Personal memories, family photos, experiences        |
 | Attachments   | Binary files (images, PDFs) linked from other notes  |
 | Inbox         | Fallback for truly ambiguous captures                |
 
@@ -287,6 +288,7 @@ Available filter expressions:
 | `Actions/Actions.base`     | "Open Actions" + "All Actions" views        |
 | `Media/Media.base`         | Grouped by media_type, "To Consume" filter  |
 | `Reference/Reference.base` | All reference notes by topic                |
+| `Memories/Memories.base`   | Personal memories by people/location        |
 | `Dashboard.base`           | Master: Today's Actions, Recent, All Open   |
 
 When adding new categories or frontmatter fields, update both

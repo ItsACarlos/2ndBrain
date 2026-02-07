@@ -248,6 +248,7 @@ _CATEGORY_DEFAULTS: dict[str, dict[str, str]] = {
         "status": "to_consume",
     },
     "Reference": {"topic": ""},
+    "Memories": {"people": "", "location": "", "memory_date": ""},
 }
 
 
@@ -353,7 +354,7 @@ ONLY return fields that should CHANGE. Do not include fields that are already
 correct. If nothing needs changing, return an empty JSON object {{}}.
 
 Possible changes:
-- category: move to a better folder (Projects/Actions/Media/Reference/Inbox)
+- category: move to a better folder (Projects/Actions/Media/Reference/Memories/Inbox)
 - tags: improved/expanded tag list (YAML list of strings)
 - Any category-specific field (see the schema below)
 
@@ -363,6 +364,7 @@ Category field schemas:
 - Media: media_title, media_type (book/film/tv/podcast/article/video), creator,
   url, status
 - Reference: topic, related_projects (list of wiki-links)
+- Memories: people (list of names), location, memory_date
 
 Return ONLY raw JSON — no markdown fences, no explanation.
 

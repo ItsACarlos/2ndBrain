@@ -20,6 +20,7 @@ _TEMPLATE_MAP: dict[str, str] = {
     "Actions.base": "Actions/Actions.base",
     "Media.base": "Media/Media.base",
     "Reference.base": "Reference/Reference.base",
+    "Memories.base": "Memories/Memories.base",
     "Dashboard.base": "_brain/Dashboard.base",
     "Dashboard.md": "Dashboard.md",
 }
@@ -30,6 +31,7 @@ CATEGORIES = {
     "Actions": "Tasks and to-dos with due dates and status tracking",
     "Media": "Books, films, TV, podcasts, articles, videos to consume",
     "Reference": "How-tos, explanations, useful information to find again",
+    "Memories": "Personal memories, family photos, experiences, milestones",
     "Attachments": "Binary files (images, PDFs) linked from categorised notes",
     "Inbox": "Uncategorised fallback for ambiguous captures",
 }

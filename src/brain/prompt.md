@@ -42,6 +42,15 @@ Otherwise, classify the input into exactly ONE of the following categories:
 - **Frontmatter fields:** `topic`, `related_projects` (list of wiki-links, or
   empty)
 
+## Memories
+- Personal memories, family moments, photos of people or places, notes about
+  experiences, milestones, holidays, celebrations, and sentimental items.
+- Use this instead of Reference when the content is personal/emotional rather
+  than informational.
+- **Frontmatter fields:** `people` (YAML list of names involved), `location`
+  (where it happened, or empty), `memory_date` (when it happened if different
+  from capture date, or empty)
+
 ## Inbox
 - Default fallback ONLY when the input is truly ambiguous and does not fit any
   category above.
@@ -70,7 +79,7 @@ Every note MUST start with YAML frontmatter containing AT MINIMUM:
 - `title`: A short descriptive title
 - `date`: Current date/time in ISO format (from the Context section)
 - `source: slack`
-- `category`: The folder name (Projects/Actions/Media/Reference/Inbox)
+- `category`: The folder name (Projects/Actions/Media/Reference/Memories/Inbox)
 - `tags`: A YAML list of relevant tags (kebab-case, no spaces — e.g. `phishing-prevention` not `phishing prevention`)
 
 Plus any category-specific fields listed above.
