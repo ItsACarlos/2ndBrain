@@ -12,6 +12,7 @@ from datetime import datetime
 from google import genai
 
 from .base import AgentResult, BaseAgent, MessageContext, format_thread_history
+from .router import Router
 
 
 class VaultQueryAgent(BaseAgent):
@@ -149,6 +150,10 @@ class VaultQueryAgent(BaseAgent):
             system,
             f"\n## Matching Notes\n{note_summaries}",
         ]
+
+        # Inject persistent directives
+        directives_text = Router._format_directives(context.vault)
+        parts.append(f"\n## Directives\n{directives_text}")
 
         # Include conversation history for threaded follow-ups
         thread_section = format_thread_history(context.thread_history)

@@ -56,6 +56,30 @@ General questions, greetings, or casual conversation not about vault content.
 {"intent": "question", "answer": "Your concise answer here"}
 ```
 
+### For "memory" intent
+The user wants to add, remove, or list persistent directives (long-term
+behaviour rules). Look for phrases like "remember", "forget", "list
+directives", "what are your directives", "stop doing X", "always do X".
+
+**Add a directive:**
+```
+{"intent": "memory", "memory_action": "add", "directive_text": "the rule to remember"}
+```
+
+**Remove a directive by number:**
+```
+{"intent": "memory", "memory_action": "remove", "directive_index": 2}
+```
+
+**List all directives:**
+```
+{"intent": "memory", "memory_action": "list"}
+```
+
+## Directives
+
+{{directives}}
+
 ## Rules
 
 - If the message contains content to **save** (URLs, notes, photos, tasks,
@@ -67,3 +91,7 @@ General questions, greetings, or casual conversation not about vault content.
 - When the message has attachments described as saved files, prefer **"file"**.
 - When in doubt between "file" and "vault_query", prefer **"file"** if there
   is new content to save.
+- If the message is about adding, removing, or listing directives/rules for
+  your behaviour, classify as **"memory"**. E.g. "remember to always tag
+  cooking recipes with #cooking", "forget directive #3", "list directives".
+- **Always follow the directives** listed above when processing any message.

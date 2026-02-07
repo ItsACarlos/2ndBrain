@@ -12,6 +12,14 @@ included in intent routing.
 """
 
 from .base import AgentResult, BaseAgent, MessageContext, format_thread_history
+from .memory import MemoryAgent
 from .router import Router
 
-__all__ = ["BaseAgent", "AgentResult", "MessageContext", "Router", "format_thread_history"]
+__all__ = [
+    "BaseAgent",
+    "AgentResult",
+    "MemoryAgent",
+    "MessageContext",
+    "Router",
+    "format_thread_history",
+]

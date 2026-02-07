@@ -33,6 +33,7 @@ class Vault:
         self._validate_vault()
         self._ensure_folders()
         self._ensure_base_files()
+        self._ensure_brain_dir()
         logging.info("Vault initialised OK at %s", self.base_path)
 
     def _validate_vault(self):
@@ -56,6 +57,64 @@ class Vault:
             folder_path.mkdir(parents=True, exist_ok=True)
             if created:
                 logging.info("Created category folder: %s/", folder)
+
+    def _ensure_brain_dir(self):
+        """Create the _brain/ directory for system files (directives, etc.)."""
+        brain_dir = self.base_path / "_brain"
+        brain_dir.mkdir(parents=True, exist_ok=True)
+
+    # ------------------------------------------------------------------
+    # Directives (persistent memory)
+    # ------------------------------------------------------------------
+
+    @property
+    def _directives_path(self) -> Path:
+        return self.base_path / "_brain" / "directives.md"
+
+    def get_directives(self) -> list[str]:
+        """Read all directives from the persistent memory file.
+
+        Returns a list of directive strings (one per bullet point).
+        """
+        path = self._directives_path
+        if not path.exists():
+            return []
+
+        text = path.read_text(encoding="utf-8")
+        directives = []
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("- "):
+                directives.append(stripped[2:].strip())
+        return directives
+
+    def add_directive(self, directive: str) -> list[str]:
+        """Append a directive to the memory file. Returns the updated list."""
+        directives = self.get_directives()
+        directives.append(directive)
+        self._write_directives(directives)
+        logging.info("Added directive: %s", directive[:60])
+        return directives
+
+    def remove_directive(self, index: int) -> tuple[str | None, list[str]]:
+        """Remove a directive by 1-based index.
+
+        Returns (removed_text or None, updated list).
+        """
+        directives = self.get_directives()
+        if 1 <= index <= len(directives):
+            removed = directives.pop(index - 1)
+            self._write_directives(directives)
+            logging.info("Removed directive #%d: %s", index, removed[:60])
+            return removed, directives
+        return None, directives
+
+    def _write_directives(self, directives: list[str]) -> None:
+        """Write the full directives list back to disk."""
+        lines = ["# Brain Directives\n"]
+        for d in directives:
+            lines.append(f"- {d}")
+        self._directives_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     # ------------------------------------------------------------------
     # Note writing

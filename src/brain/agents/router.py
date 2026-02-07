@@ -33,6 +33,18 @@ class Router:
         self.default_agent = default_agent
 
     # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _format_directives(vault) -> str:
+        """Format vault directives as a bullet list for injection into prompts."""
+        directives = vault.get_directives() if vault else []
+        if not directives:
+            return "_No directives set._"
+        return "\n".join(f"- {d}" for d in directives)
+
+    # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
@@ -80,9 +92,11 @@ class Router:
             agent_lines.append(f'- **"{name}"**: {agent.description}')
         agent_descriptions = "\n".join(agent_lines)
 
-        prompt = prompt_template.replace(
-            "{{agent_descriptions}}", agent_descriptions
-        ).replace("{{current_time}}", datetime.now().strftime("%Y-%m-%d %H:%M"))
+        prompt = (
+            prompt_template.replace("{{agent_descriptions}}", agent_descriptions)
+            .replace("{{current_time}}", datetime.now().strftime("%Y-%m-%d %H:%M"))
+            .replace("{{directives}}", self._format_directives(context.vault))
+        )
 
         parts: list = [prompt, f"\n## User Message\n{context.raw_text}"]
 

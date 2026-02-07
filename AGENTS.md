@@ -50,7 +50,8 @@ src/brain/
     ├── router.py        # Intent classifier — dispatches to registered agents
     ├── router_prompt.md # System prompt for the router's classification call
     ├── filing.py        # FilingAgent — classifies & archives content to vault
-    └── vault_query.py   # VaultQueryAgent — searches vault & answers questions
+    ├── vault_query.py   # VaultQueryAgent — searches vault & answers questions
+    └── memory.py        # MemoryAgent — add/remove/list persistent directives
 service-units/
 ├── brain.service                   # Slack listener (server, template with @@PROJECT_DIR@@)
 ├── rclone-2ndbrain.service         # rclone FUSE mount (server)
@@ -130,6 +131,7 @@ Slack message → listener.py (attachment prep + thread history fetch)
   → intent == "question"  → direct answer (no second call)
   → intent == "file"      → FilingAgent.handle()  → save to vault
   → intent == "vault_query" → VaultQueryAgent.handle() → search + answer
+  → intent == "memory"     → MemoryAgent.handle()  → add/remove/list directives
   → intent == <new agent> → YourAgent.handle()
   ← reply posted in-thread (if message was threaded)
 ```
@@ -140,6 +142,7 @@ Slack message → listener.py (attachment prep + thread history fetch)
 |---------------|------------------|---------------------------------------------|
 | `file`        | `FilingAgent`    | Classify and archive content into the vault |
 | `vault_query` | `VaultQueryAgent`| Search vault notes and answer questions     |
+| `memory`      | `MemoryAgent`    | Add, remove, or list persistent directives  |
 
 ### Adding a New Agent
 

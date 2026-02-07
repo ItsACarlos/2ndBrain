@@ -13,6 +13,7 @@ from google import genai
 
 from ..processor import _extract_json, _inject_tokens
 from .base import AgentResult, BaseAgent, MessageContext, format_thread_history
+from .router import Router
 
 FILING_PROMPT_FILE = Path(__file__).parent.parent / "prompt.md"
 
@@ -113,8 +114,13 @@ class FilingAgent(BaseAgent):
         parts: list = [
             system_prompt,
             f"\n## Context\n{context_text}",
-            f"\n## Input\n{context.raw_text}",
         ]
+
+        # Inject persistent directives
+        directives_text = Router._format_directives(context.vault)
+        parts.append(f"\n## Directives\n{directives_text}")
+
+        parts.append(f"\n## Input\n{context.raw_text}")
 
         # Include conversation history for threaded follow-ups
         thread_section = format_thread_history(context.thread_history)

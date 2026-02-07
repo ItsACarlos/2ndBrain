@@ -131,7 +131,34 @@ is made.
 |---------------|------------------------------------------------------------|
 | Intent name   | `question`                                                 |
 | Gemini calls  | **1 total** (router only)                                  |
+### MemoryAgent (`agents/memory.py`)
 
+Manages persistent directives (long-term memory). The user can tell the
+bot to "remember" behaviour rules, "forget" specific directives, or
+"list directives". Directives are stored in `_brain/directives.md` in the
+vault as bullet points and are injected into all agent prompts so they
+influence filing, queries, and routing decisions.
+
+| Property      | Value                                                      |
+|---------------|------------------------------------------------------------||
+| Intent name   | `memory`                                                   |
+| Model         | None (no Gemini call — pure CRUD)                          |
+| Storage       | `_brain/directives.md` in vault root                       |
+| Gemini calls  | **1 total** (router only)                                  |
+
+## Directives System
+
+Directives are persistent behaviour rules stored in `_brain/directives.md`.
+They are read by `Vault.get_directives()` and injected into the system
+prompts of the router, filing agent, and vault query agent. This allows
+users to customise the bot's behaviour over time, e.g.:
+
+- "Remember: always tag cooking recipes with #cooking"
+- "Remember: file YouTube videos to Media, not Reference"
+- "Remember: my project 'garden' is called 'garden-renovation'"
+
+Directives persist across restarts because they live in the vault (synced
+via rclone like all other vault content).
 ## Key Components
 
 ```
@@ -147,7 +174,8 @@ src/brain/
     ├── router.py        # Intent classifier + dispatcher
     ├── router_prompt.md # Router system prompt (template with {{placeholders}})
     ├── filing.py        # FilingAgent
-    └── vault_query.py   # VaultQueryAgent
+    ├── vault_query.py   # VaultQueryAgent
+    └── memory.py        # MemoryAgent (persistent directives)
 ```
 
 ## Adding a New Agent

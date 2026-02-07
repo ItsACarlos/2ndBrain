@@ -131,7 +131,9 @@ def _process_attachments(files: list[dict], vault: Vault) -> list:
     return parts
 
 
-def _fetch_thread_history(client, channel: str, thread_ts: str, current_ts: str) -> list[dict]:
+def _fetch_thread_history(
+    client, channel: str, thread_ts: str, current_ts: str
+) -> list[dict]:
     """
     Fetch prior messages from a Slack thread for conversation context.
 
@@ -198,9 +200,7 @@ def register_listeners(app, vault: Vault, router: Router):
                 thread_history = _fetch_thread_history(
                     client, channel, thread_ts, message_ts
                 )
-                logging.info(
-                    "Thread context: %d prior messages", len(thread_history)
-                )
+                logging.info("Thread context: %d prior messages", len(thread_history))
 
             # Build context and route to the appropriate agent
             context = MessageContext(
