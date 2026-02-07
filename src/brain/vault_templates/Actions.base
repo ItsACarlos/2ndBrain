@@ -1,0 +1,34 @@
+filters:
+  and:
+    - 'file.inFolder("Actions")'
+    - 'file.ext == "md"'
+properties:
+  status:
+    displayName: Status
+  due_date:
+    displayName: Due Date
+  priority:
+    displayName: Priority
+  project:
+    displayName: Project
+views:
+  - type: table
+    name: Open Actions
+    filters:
+      and:
+        - 'status != "done"'
+        - 'status != "completed"'
+    order:
+      - file.name
+      - note.due_date
+      - note.priority
+      - note.status
+      - note.project
+  - type: table
+    name: All Actions
+    order:
+      - file.name
+      - note.due_date
+      - note.priority
+      - note.status
+      - note.project

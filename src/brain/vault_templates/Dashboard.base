@@ -1,0 +1,53 @@
+filters:
+  and:
+    - 'file.ext == "md"'
+properties:
+  category:
+    displayName: Category
+  status:
+    displayName: Status
+  due_date:
+    displayName: Due Date
+  priority:
+    displayName: Priority
+  project:
+    displayName: Project
+  date:
+    displayName: Date
+views:
+  - type: table
+    name: "Today's Actions"
+    filters:
+      and:
+        - 'file.inFolder("Actions")'
+        - 'status != "done"'
+        - 'status != "completed"'
+    order:
+      - file.name
+      - note.due_date
+      - note.priority
+      - note.status
+      - note.project
+  - type: table
+    name: Recent Captures
+    filters:
+      and:
+        - 'file.mtime > now() - "7 days"'
+    order:
+      - file.name
+      - file.mtime
+      - note.category
+      - note.project
+  - type: table
+    name: All Open Actions
+    filters:
+      and:
+        - 'file.inFolder("Actions")'
+        - 'status != "done"'
+        - 'status != "completed"'
+    order:
+      - file.name
+      - note.due_date
+      - note.priority
+      - note.status
+      - note.project

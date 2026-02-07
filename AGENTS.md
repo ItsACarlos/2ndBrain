@@ -44,14 +44,21 @@ src/brain/
 ├── vault.py         # All Obsidian vault I/O, folder management, .base files
 ├── briefing.py      # Daily morning summary posted to Slack
 ├── prompt.md        # System prompt for the filing agent (Gemini)
-└── agents/          # Pluggable agent architecture
-    ├── __init__.py      # Package exports: BaseAgent, AgentResult, MessageContext, Router
-    ├── base.py          # BaseAgent ABC, AgentResult & MessageContext dataclasses
-    ├── router.py        # Intent classifier — dispatches to registered agents
-    ├── router_prompt.md # System prompt for the router's classification call
-    ├── filing.py        # FilingAgent — classifies & archives content to vault
-    ├── vault_query.py   # VaultQueryAgent — searches vault & answers questions
-    └── memory.py        # MemoryAgent — add/remove/list persistent directives
+├── agents/          # Pluggable agent architecture
+│   ├── __init__.py      # Package exports: BaseAgent, AgentResult, MessageContext, Router
+│   ├── base.py          # BaseAgent ABC, AgentResult & MessageContext dataclasses
+│   ├── router.py        # Intent classifier — dispatches to registered agents
+│   ├── router_prompt.md # System prompt for the router's classification call
+│   ├── filing.py        # FilingAgent — classifies & archives content to vault
+│   ├── vault_query.py   # VaultQueryAgent — searches vault & answers questions
+│   └── memory.py        # MemoryAgent — add/remove/list persistent directives
+└── vault_templates/     # Obsidian .base and .md templates synced to the vault
+    ├── Projects.base
+    ├── Actions.base
+    ├── Media.base
+    ├── Reference.base
+    ├── Dashboard.base
+    └── Dashboard.md
 service-units/
 ├── brain.service                   # Slack listener (server, template with @@PROJECT_DIR@@)
 ├── rclone-2ndbrain.service         # rclone FUSE mount (server)
@@ -213,8 +220,10 @@ persist across restarts because they live in the vault (synced via rclone).
 
 ## Obsidian Bases
 The vault uses **Obsidian Bases** (native `.base` files, NOT the Dataview
-plugin) for dashboards and filtered views. These are generated on first
-startup by `vault.py._ensure_base_files()` and never overwritten.
+plugin) for dashboards and filtered views. The source templates live in
+`src/brain/vault_templates/` and are synced to the vault on startup by
+`vault.py._ensure_base_files()` whenever the source file is newer than
+the vault copy (timestamp comparison via `shutil.copy2`).
 
 ### .base File Format
 Obsidian `.base` files are YAML documents with three top-level keys:
@@ -338,10 +347,11 @@ the service.
   `~/Documents/2ndBrain/` before attempting file operations.
 - **Check bisync (workstation):** `systemctl --user list-timers` to
   verify the timer is active.
-- **Regenerate a .base file:** Delete it from the vault, restart the service.
+- **Update a .base file:** Edit the template in `src/brain/vault_templates/`,
+  restart the service — the newer timestamp triggers an automatic copy.
 - **Add a new vault category:** Add to `CATEGORIES` dict in `vault.py`,
-  add classification rules in `prompt.md`, add a `_*_base()` method,
-  register it in `_ensure_base_files()`.
+  add classification rules in `prompt.md`, create a new template file in
+  `vault_templates/`, and add its mapping to `_TEMPLATE_MAP` in `vault.py`.
 - **Change the daily briefing time:** Set `BRIEFING_TIME=08:00` in `.env`.
   Set `BRIEFING_CHANNEL` to a Slack channel ID to enable it.
 - **Install deps:** `uv sync` (not pip install)

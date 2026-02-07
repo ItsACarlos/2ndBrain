@@ -1,0 +1,19 @@
+filters:
+  and:
+    - 'file.inFolder("Reference")'
+    - 'file.ext == "md"'
+properties:
+  topic:
+    displayName: Topic
+  tags:
+    displayName: Tags
+  date:
+    displayName: Date
+views:
+  - type: table
+    name: All Reference
+    order:
+      - file.name
+      - note.topic
+      - note.tags
+      - note.date

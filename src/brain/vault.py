@@ -7,8 +7,22 @@ project discovery, and Obsidian Bases file generation.
 
 import logging
 import re
+import shutil
 from datetime import datetime
 from pathlib import Path
+
+#: Directory containing .base and .md template files shipped with the package.
+_TEMPLATES_DIR = Path(__file__).parent / "vault_templates"
+
+#: Mapping of template filename → vault-relative destination path.
+_TEMPLATE_MAP: dict[str, str] = {
+    "Projects.base": "Projects/Projects.base",
+    "Actions.base": "Actions/Actions.base",
+    "Media.base": "Media/Media.base",
+    "Reference.base": "Reference/Reference.base",
+    "Dashboard.base": "_brain/Dashboard.base",
+    "Dashboard.md": "Dashboard.md",
+}
 
 # Category folders and their descriptions
 CATEGORIES = {
@@ -404,222 +418,18 @@ class Vault:
     # ------------------------------------------------------------------
 
     def _ensure_base_files(self):
-        """Generate Obsidian .base files and Dashboard.md if they don't exist."""
-        bases = {
-            "Projects/Projects.base": self._projects_base(),
-            "Actions/Actions.base": self._actions_base(),
-            "Media/Media.base": self._media_base(),
-            "Reference/Reference.base": self._reference_base(),
-            "_brain/Dashboard.base": self._dashboard_base(),
-            "Dashboard.md": self._dashboard_md(),
-        }
+        """Copy vault template files when the source is newer or dest is missing."""
+        for template_name, vault_rel in _TEMPLATE_MAP.items():
+            src = _TEMPLATES_DIR / template_name
+            dest = self.base_path / vault_rel
 
-        for rel_path, content in bases.items():
-            full_path = self.base_path / rel_path
-            if not full_path.exists():
-                full_path.write_text(content, encoding="utf-8")
-                logging.info(f"Created vault file: {rel_path}")
+            if not src.exists():
+                logging.warning("Template not found: %s", src)
+                continue
 
-    @staticmethod
-    def _projects_base() -> str:
-        return """\
-filters:
-  and:
-    - 'file.inFolder("Projects")'
-    - 'file.ext == "md"'
-properties:
-  priority:
-    displayName: Priority
-  date:
-    displayName: Date
-  tags:
-    displayName: Tags
-views:
-  - type: table
-    name: All Projects
-    order:
-      - file.name
-      - note.priority
-      - note.date
-      - note.tags
-"""
+            if dest.exists() and dest.stat().st_mtime >= src.stat().st_mtime:
+                continue  # vault copy is up-to-date
 
-    @staticmethod
-    def _actions_base() -> str:
-        return """\
-filters:
-  and:
-    - 'file.inFolder("Actions")'
-    - 'file.ext == "md"'
-properties:
-  status:
-    displayName: Status
-  due_date:
-    displayName: Due Date
-  priority:
-    displayName: Priority
-  project:
-    displayName: Project
-views:
-  - type: table
-    name: Open Actions
-    filters:
-      and:
-        - 'status != "done"'
-        - 'status != "completed"'
-    order:
-      - file.name
-      - note.due_date
-      - note.priority
-      - note.status
-      - note.project
-  - type: table
-    name: All Actions
-    order:
-      - file.name
-      - note.due_date
-      - note.priority
-      - note.status
-      - note.project
-"""
-
-    @staticmethod
-    def _media_base() -> str:
-        return """\
-filters:
-  and:
-    - 'file.inFolder("Media")'
-    - 'file.ext == "md"'
-properties:
-  media_type:
-    displayName: Type
-  creator:
-    displayName: Creator
-  status:
-    displayName: Status
-  url:
-    displayName: URL
-views:
-  - type: table
-    name: All Media
-    groupBy:
-      property: note.media_type
-      direction: ASC
-    order:
-      - file.name
-      - note.media_type
-      - note.creator
-      - note.status
-      - note.url
-  - type: table
-    name: To Consume
-    filters:
-      and:
-        - 'status == "to_consume"'
-    order:
-      - file.name
-      - note.media_type
-      - note.creator
-"""
-
-    @staticmethod
-    def _reference_base() -> str:
-        return """\
-filters:
-  and:
-    - 'file.inFolder("Reference")'
-    - 'file.ext == "md"'
-properties:
-  topic:
-    displayName: Topic
-  tags:
-    displayName: Tags
-  date:
-    displayName: Date
-views:
-  - type: table
-    name: All Reference
-    order:
-      - file.name
-      - note.topic
-      - note.tags
-      - note.date
-"""
-
-    @staticmethod
-    def _dashboard_base() -> str:
-        return """\
-filters:
-  and:
-    - 'file.ext == "md"'
-properties:
-  category:
-    displayName: Category
-  status:
-    displayName: Status
-  due_date:
-    displayName: Due Date
-  priority:
-    displayName: Priority
-  project:
-    displayName: Project
-  date:
-    displayName: Date
-views:
-  - type: table
-    name: "Today's Actions"
-    filters:
-      and:
-        - 'file.inFolder("Actions")'
-        - 'status != "done"'
-        - 'status != "completed"'
-    order:
-      - file.name
-      - note.due_date
-      - note.priority
-      - note.status
-      - note.project
-  - type: table
-    name: Recent Captures
-    filters:
-      and:
-        - 'file.mtime > now() - "7 days"'
-    order:
-      - file.name
-      - file.mtime
-      - note.category
-      - note.project
-  - type: table
-    name: All Open Actions
-    filters:
-      and:
-        - 'file.inFolder("Actions")'
-        - 'status != "done"'
-        - 'status != "completed"'
-    order:
-      - file.name
-      - note.due_date
-      - note.priority
-      - note.status
-      - note.project
-"""
-
-    @staticmethod
-    def _dashboard_md() -> str:
-        """Generate a Dashboard.md that embeds the base and category views."""
-        return """\
-
-![[_brain/Dashboard.base]]
-
-> [!abstract]- Projects
-> ![[Projects/Projects.base]]
-
-> [!abstract]- Actions
-> ![[Actions/Actions.base]]
-
-> [!abstract]- Media
-> ![[Media/Media.base]]
-
-> [!abstract]- Reference
-> ![[Reference/Reference.base]]
-"""
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dest)
+            logging.info("Synced vault template: %s", vault_rel)

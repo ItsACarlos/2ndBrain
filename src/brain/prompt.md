@@ -29,9 +29,12 @@ Otherwise, classify the input into exactly ONE of the following categories:
 ## Media
 - Books, films, TV shows, podcasts, articles, YouTube videos, web pages
   mentioned for future consumption.
+- For YouTube videos or music, extract the actual video/song title from the URL
+  or message and use it as both the `media_title` and the filename slug.
+  Do NOT use generic names like "YouTube Video" or "Music Video Link".
 - **Frontmatter fields:** `media_title`, `media_type`
   (book/film/tv/podcast/article/video), `creator`, `url` (if provided),
-  `status: to_consume`
+  `status: to_consume`, `priority` (high/medium/low)
 
 ## Reference
 - Useful information to find again later: how-tos, explanations, code recipes,

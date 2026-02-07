@@ -1,0 +1,38 @@
+filters:
+  and:
+    - 'file.inFolder("Media")'
+    - 'file.ext == "md"'
+properties:
+  media_type:
+    displayName: Type
+  creator:
+    displayName: Creator
+  priority:
+    displayName: Priority
+  status:
+    displayName: Status
+  url:
+    displayName: URL
+views:
+  - type: table
+    name: All Media
+    groupBy:
+      property: note.media_type
+      direction: ASC
+    order:
+      - file.name
+      - note.media_type
+      - note.creator
+      - note.priority
+      - note.status
+      - note.url
+  - type: table
+    name: To Consume
+    filters:
+      and:
+        - 'status == "to_consume"'
+    order:
+      - file.name
+      - note.media_type
+      - note.creator
+      - note.priority

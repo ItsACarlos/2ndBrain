@@ -7,6 +7,7 @@ delegates to the agent router, and replies in Slack.
 
 import logging
 import os
+import re
 
 import requests
 from google.genai import types
@@ -17,6 +18,15 @@ from .vault import Vault
 
 # Maximum number of prior thread messages to include for context
 MAX_THREAD_MESSAGES = 10
+
+# Regex to find URLs in message text (Slack wraps them in < >)
+_URL_PATTERN = re.compile(r"<(https?://[^>|]+)(?:\|[^>]*)?>")
+
+# Domains worth fetching page titles from
+_TITLE_DOMAINS = {"youtube.com", "youtu.be", "music.youtube.com", "vimeo.com"}
+
+# HTML <title> tag extraction
+_TITLE_TAG = re.compile(r"<title[^>]*>([^<]+)</title>", re.IGNORECASE)
 
 
 def download_slack_file(url: str) -> bytes:
@@ -52,6 +62,50 @@ def download_slack_file(url: str) -> bytes:
         raise ValueError("Slack returned HTML. Token likely lacks 'files:read'.")
 
     return resp.content
+
+
+def _fetch_url_titles(text: str) -> str:
+    """Extract URLs from Slack message text and fetch their page titles.
+
+    Fetches the HTML ``<title>`` for media URLs (YouTube, Vimeo, etc.)
+    and appends the metadata so Gemini can use the actual video/song
+    title for naming.
+
+    Returns:
+        Extra context string to append to the message, or empty string.
+    """
+    urls = _URL_PATTERN.findall(text)
+    if not urls:
+        return ""
+
+    enrichments: list[str] = []
+    for url in urls:
+        # Only fetch titles for known media domains
+        if not any(domain in url for domain in _TITLE_DOMAINS):
+            continue
+
+        try:
+            resp = requests.get(
+                url,
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=10,
+                allow_redirects=True,
+            )
+            resp.raise_for_status()
+            match = _TITLE_TAG.search(resp.text[:10000])
+            if match:
+                title = match.group(1).strip()
+                # Clean up common YouTube suffixes
+                title = re.sub(r"\s*[-–—]\s*YouTube$", "", title)
+                enrichments.append(
+                    f'[System: Page title for {url} is: "{title}". '
+                    f"Use this as the note title and filename.]"
+                )
+                logging.info("Fetched page title for %s: %s", url, title)
+        except Exception as e:
+            logging.warning("Failed to fetch title for %s: %s", url, e)
+
+    return "\n".join(enrichments)
 
 
 def _process_attachments(files: list[dict], vault: Vault) -> list:
@@ -194,6 +248,10 @@ def register_listeners(app, vault: Vault, router: Router):
             # Process attachments
             attachment_context = _process_attachments(files, vault)
 
+            # Enrich message with URL metadata (video titles, etc.)
+            url_context = _fetch_url_titles(text)
+            enriched_text = f"{text}\n{url_context}" if url_context else text
+
             # Fetch thread history if this message is in a thread
             thread_history = []
             if thread_ts:
@@ -204,7 +262,7 @@ def register_listeners(app, vault: Vault, router: Router):
 
             # Build context and route to the appropriate agent
             context = MessageContext(
-                raw_text=text,
+                raw_text=enriched_text,
                 attachment_context=attachment_context,
                 vault=vault,
                 thread_history=thread_history,
