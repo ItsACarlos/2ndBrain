@@ -45,9 +45,7 @@ class Vault:
             raise SystemExit(1)
 
         if not self.base_path.exists():
-            logging.warning(
-                "Vault root not found, creating: %s", self.base_path
-            )
+            logging.warning("Vault root not found, creating: %s", self.base_path)
             self.base_path.mkdir(parents=True, exist_ok=True)
 
     def _ensure_folders(self):
@@ -194,7 +192,9 @@ class Vault:
                         {
                             "path": md_file,
                             "folder": folder,
-                            "title": fm.get("title", md_file.stem) if fm else md_file.stem,
+                            "title": fm.get("title", md_file.stem)
+                            if fm
+                            else md_file.stem,
                         }
                     )
 
@@ -279,8 +279,9 @@ class Vault:
     def _projects_base() -> str:
         return """\
 filters:
-  - 'file.inFolder("Projects")'
-  - 'file.ext == "md"'
+  and:
+    - 'file.inFolder("Projects")'
+    - 'file.ext == "md"'
 properties:
   title:
     displayName: Title
@@ -307,8 +308,9 @@ views:
     def _actions_base() -> str:
         return """\
 filters:
-  - 'file.inFolder("Actions")'
-  - 'file.ext == "md"'
+  and:
+    - 'file.inFolder("Actions")'
+    - 'file.ext == "md"'
 properties:
   title:
     displayName: Title
@@ -349,8 +351,9 @@ views:
     def _media_base() -> str:
         return """\
 filters:
-  - 'file.inFolder("Media")'
-  - 'file.ext == "md"'
+  and:
+    - 'file.inFolder("Media")'
+    - 'file.ext == "md"'
 properties:
   media_title:
     displayName: Title
@@ -377,7 +380,8 @@ views:
   - type: table
     name: To Consume
     filters:
-      - 'status == "to_consume"'
+      and:
+        - 'status == "to_consume"'
     order:
       - note.media_title
       - note.media_type
@@ -388,8 +392,9 @@ views:
     def _reference_base() -> str:
         return """\
 filters:
-  - 'file.inFolder("Reference")'
-  - 'file.ext == "md"'
+  and:
+    - 'file.inFolder("Reference")'
+    - 'file.ext == "md"'
 properties:
   title:
     displayName: Title
@@ -413,7 +418,8 @@ views:
     def _dashboard_base() -> str:
         return """\
 filters:
-  - 'file.ext == "md"'
+  and:
+    - 'file.ext == "md"'
 properties:
   title:
     displayName: Title
@@ -443,7 +449,8 @@ views:
   - type: table
     name: Recent Captures
     filters:
-      - 'file.mtime > now() - "7 days"'
+      and:
+        - 'file.mtime > now() - "7 days"'
     order:
       - file.mtime
       - note.title
