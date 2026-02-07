@@ -147,20 +147,24 @@ class GeminiProcessor:
             logging.error(f"Gemini API error: {e}")
             raise
 
-        usage = response.usage_metadata
-        tokens = usage.total_token_count
+        tokens = (
+            (response.usage_metadata.total_token_count or 0)
+            if response.usage_metadata
+            else 0
+        )
+        text = response.text or ""
 
         # Try to parse structured JSON
-        data = _extract_json(response.text)
+        data = _extract_json(text)
 
         if data is None:
             # No JSON found — treat as a direct answer to a question
-            return response.text, tokens, True
+            return text, tokens, True
 
         # Validate required fields
         if "folder" not in data or "content" not in data:
             logging.warning(f"Gemini returned incomplete JSON: {list(data.keys())}")
-            return response.text, tokens, True
+            return text, tokens, True
 
         # Ensure slug exists
         if "slug" not in data:

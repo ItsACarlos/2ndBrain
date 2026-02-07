@@ -121,9 +121,13 @@ class Router:
             logging.error("Router Gemini error: %s", e)
             return {"intent": self.default_agent}
 
-        tokens = response.usage_metadata.total_token_count
+        tokens = (
+            (response.usage_metadata.total_token_count or 0)
+            if response.usage_metadata
+            else 0
+        )
 
-        data = _extract_json(response.text)
+        data = _extract_json(response.text or "")
         if data is None:
             logging.warning(
                 "Router returned unparseable response, defaulting to '%s'",

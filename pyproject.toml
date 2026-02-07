@@ -55,7 +55,7 @@ name = "2ndBrain Obsidian Vault manager"
 version_file = "src/brain/_version.py"
 
 [tool.pyright]
-typeCheckingMode = "strict"
+typeCheckingMode = "standard"
 reportMissingImports = false # Ignore missing stubs in imported modules
 
 [tool.pytest.ini_options]

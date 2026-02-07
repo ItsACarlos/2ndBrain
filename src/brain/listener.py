@@ -70,7 +70,7 @@ def _process_attachments(files: list[dict], vault: Vault) -> list:
     if not files:
         return []
 
-    parts = ["\n## Attachments"]
+    parts: list[str | types.Part] = ["\n## Attachments"]
 
     for file_info in files:
         name = file_info.get("name", "unknown")

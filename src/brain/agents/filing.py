@@ -50,17 +50,22 @@ class FilingAgent(BaseAgent):
             logging.error("Filing agent Gemini error: %s", e)
             raise
 
-        tokens = response.usage_metadata.total_token_count
-        data = _extract_json(response.text)
+        tokens = (
+            (response.usage_metadata.total_token_count or 0)
+            if response.usage_metadata
+            else 0
+        )
+        text = response.text or ""
+        data = _extract_json(text)
 
         if data is None:
             # Gemini returned plain text — treat as a direct answer
-            return AgentResult(response_text=response.text, tokens_used=tokens)
+            return AgentResult(response_text=text, tokens_used=tokens)
 
         # Validate required fields
         if "folder" not in data or "content" not in data:
             logging.warning("Filing: incomplete JSON keys: %s", list(data.keys()))
-            return AgentResult(response_text=response.text, tokens_used=tokens)
+            return AgentResult(response_text=text, tokens_used=tokens)
 
         # Ensure slug
         if "slug" not in data:
