@@ -22,11 +22,14 @@ MAX_THREAD_MESSAGES = 10
 # Regex to find URLs in message text (Slack wraps them in < >)
 _URL_PATTERN = re.compile(r"<(https?://[^>|]+)(?:\|[^>]*)?>")
 
-# Domains worth fetching page titles from
-_TITLE_DOMAINS = {"youtube.com", "youtu.be", "music.youtube.com", "vimeo.com"}
-
-# HTML <title> tag extraction
-_TITLE_TAG = re.compile(r"<title[^>]*>([^<]+)</title>", re.IGNORECASE)
+# oEmbed endpoints keyed by domain fragments.
+# Each value is the provider's oEmbed URL; the video URL is appended as ?url=…
+_OEMBED_ENDPOINTS: dict[str, str] = {
+    "youtube.com": "https://www.youtube.com/oembed",
+    "youtu.be": "https://www.youtube.com/oembed",
+    "music.youtube.com": "https://www.youtube.com/oembed",
+    "vimeo.com": "https://vimeo.com/api/oembed.json",
+}
 
 
 def download_slack_file(url: str) -> bytes:
@@ -67,9 +70,9 @@ def download_slack_file(url: str) -> bytes:
 def _fetch_url_titles(text: str) -> str:
     """Extract URLs from Slack message text and fetch their page titles.
 
-    Fetches the HTML ``<title>`` for media URLs (YouTube, Vimeo, etc.)
-    and appends the metadata so Gemini can use the actual video/song
-    title for naming.
+    Uses oEmbed APIs (YouTube, Vimeo) to retrieve the actual video title
+    and author, then appends the metadata so Gemini can use them for
+    naming the note.
 
     Returns:
         Extra context string to append to the message, or empty string.
@@ -80,30 +83,34 @@ def _fetch_url_titles(text: str) -> str:
 
     enrichments: list[str] = []
     for url in urls:
-        # Only fetch titles for known media domains
-        if not any(domain in url for domain in _TITLE_DOMAINS):
+        # Find the matching oEmbed endpoint for this URL's domain
+        oembed_url: str | None = None
+        for domain, endpoint in _OEMBED_ENDPOINTS.items():
+            if domain in url:
+                oembed_url = endpoint
+                break
+        if oembed_url is None:
             continue
 
         try:
             resp = requests.get(
-                url,
-                headers={"User-Agent": "Mozilla/5.0"},
+                oembed_url,
+                params={"url": url, "format": "json"},
                 timeout=10,
-                allow_redirects=True,
             )
             resp.raise_for_status()
-            match = _TITLE_TAG.search(resp.text[:10000])
-            if match:
-                title = match.group(1).strip()
-                # Clean up common YouTube suffixes
-                title = re.sub(r"\s*[-–—]\s*YouTube$", "", title)
-                enrichments.append(
-                    f'[System: Page title for {url} is: "{title}". '
-                    f"Use this as the note title and filename.]"
-                )
-                logging.info("Fetched page title for %s: %s", url, title)
+            data = resp.json()
+            title = data.get("title", "").strip()
+            author = data.get("author_name", "").strip()
+            if title:
+                parts = [f'Page title for {url} is: "{title}".']
+                if author:
+                    parts.append(f'Author/channel: "{author}".')
+                parts.append("Use this as the note title and filename.")
+                enrichments.append(f"[System: {' '.join(parts)}]")
+                logging.info("oEmbed title for %s: %s (by %s)", url, title, author)
         except Exception as e:
-            logging.warning("Failed to fetch title for %s: %s", url, e)
+            logging.warning("Failed to fetch oEmbed for %s: %s", url, e)
 
     return "\n".join(enrichments)
 
