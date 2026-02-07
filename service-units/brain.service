@@ -1,14 +1,17 @@
 [Unit]
 Description=2ndBrain Slack Listener
 After=network.target rclone-2ndbrain.service
+Requires=rclone-2ndbrain.service
 
 [Service]
 Type=simple
-EnvironmentFile=%h/2nd_brain/.env
+EnvironmentFile=@@PROJECT_DIR@@/.env
 Environment=PYTHONUNBUFFERED=1
-ExecStart=%h/2nd_brain/.venv/bin/python -m src.brain.app
-WorkingDirectory=%h/2nd_brain
+ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do [ -d "%h/Documents/2ndBrain" ] && exit 0; sleep 1; done; echo "Mount not ready"; exit 1'
+ExecStart=@@PROJECT_DIR@@/.venv/bin/python -m src.brain.app
+WorkingDirectory=@@PROJECT_DIR@@
 Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=default.target

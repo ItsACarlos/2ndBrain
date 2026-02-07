@@ -1,0 +1,12 @@
+[Unit]
+Description=RClone Bisync for 2ndBrain (workstation)
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+ExecStart=/usr/bin/rclone bisync gdrive-vault: %h/Documents/2ndBrain \
+  --password-command "pass rclone/gdrive-vault" \
+  --resilient \
+  --recover \
+  --conflict-resolve newer

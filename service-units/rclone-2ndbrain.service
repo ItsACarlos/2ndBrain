@@ -11,7 +11,9 @@ ExecStart=/usr/bin/rclone mount gdrive-vault: %h/Documents/2ndBrain \
   --password-command "pass rclone/gdrive-vault" \
   --vfs-cache-mode full \
   --vfs-cache-max-age 24h \
-  --vfs-cache-max-size 10G
+  --vfs-cache-max-size 10G \
+  --poll-interval 15s \
+  --dir-cache-time 5s
 # This unmounts the folder when the service stops
 ExecStop=/usr/bin/fusermount -u %h/Documents/2ndBrain
 Restart=on-failure
