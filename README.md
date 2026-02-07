@@ -1,9 +1,18 @@
+[![CI](https://github.com/gilesknap/2ndBrain/actions/workflows/ci.yml/badge.svg)](https://github.com/gilesknap/2ndBrain/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/gilesknap/2ndBrain/branch/main/graph/badge.svg)](https://codecov.io/gh/gilesknap/2ndBrain)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+
 # 2ndBrain — Gemini-Powered Quick Capture for Obsidian
 
 A Slack-driven quick-capture system that uses **Gemini AI** to classify,
 enrich, and file notes into an **Obsidian vault**. Send messages — text,
 images, PDFs — via Slack and they are automatically categorised with full
 YAML frontmatter into the correct vault folder.
+
+Source          | <https://github.com/gilesknap/2ndBrain>
+:---:           | :---:
+Documentation   | <https://gilesknap.github.io/2ndBrain>
+Releases        | <https://github.com/gilesknap/2ndBrain/releases>
 
 ## Features
 
@@ -86,4 +95,8 @@ for rclone configuration details.
 
 ## License
 
-See [LICENSE.md](LICENSE.md).
+See [LICENSE](LICENSE).
+
+<!-- README only content. Anything below this line won't be included in index.md -->
+
+See https://gilesknap.github.io/2ndBrain for more detailed documentation.
