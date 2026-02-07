@@ -33,6 +33,7 @@ class Vault:
         self._validate_vault()
         self._ensure_folders()
         self._ensure_base_files()
+        self._ensure_brain_dir()
         logging.info("Vault initialised OK at %s", self.base_path)
 
     def _validate_vault(self):
@@ -56,6 +57,64 @@ class Vault:
             folder_path.mkdir(parents=True, exist_ok=True)
             if created:
                 logging.info("Created category folder: %s/", folder)
+
+    def _ensure_brain_dir(self):
+        """Create the _brain/ directory for system files (directives, etc.)."""
+        brain_dir = self.base_path / "_brain"
+        brain_dir.mkdir(parents=True, exist_ok=True)
+
+    # ------------------------------------------------------------------
+    # Directives (persistent memory)
+    # ------------------------------------------------------------------
+
+    @property
+    def _directives_path(self) -> Path:
+        return self.base_path / "_brain" / "directives.md"
+
+    def get_directives(self) -> list[str]:
+        """Read all directives from the persistent memory file.
+
+        Returns a list of directive strings (one per bullet point).
+        """
+        path = self._directives_path
+        if not path.exists():
+            return []
+
+        text = path.read_text(encoding="utf-8")
+        directives = []
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("- "):
+                directives.append(stripped[2:].strip())
+        return directives
+
+    def add_directive(self, directive: str) -> list[str]:
+        """Append a directive to the memory file. Returns the updated list."""
+        directives = self.get_directives()
+        directives.append(directive)
+        self._write_directives(directives)
+        logging.info("Added directive: %s", directive[:60])
+        return directives
+
+    def remove_directive(self, index: int) -> tuple[str | None, list[str]]:
+        """Remove a directive by 1-based index.
+
+        Returns (removed_text or None, updated list).
+        """
+        directives = self.get_directives()
+        if 1 <= index <= len(directives):
+            removed = directives.pop(index - 1)
+            self._write_directives(directives)
+            logging.info("Removed directive #%d: %s", index, removed[:60])
+            return removed, directives
+        return None, directives
+
+    def _write_directives(self, directives: list[str]) -> None:
+        """Write the full directives list back to disk."""
+        lines = ["# Brain Directives\n"]
+        for d in directives:
+            lines.append(f"- {d}")
+        self._directives_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     # ------------------------------------------------------------------
     # Note writing
@@ -215,6 +274,91 @@ class Vault:
                         "media_type": fm.get("media_type", "unknown"),
                     }
                 )
+
+        return results
+
+    # ------------------------------------------------------------------
+    # Vault search (used by agents)
+    # ------------------------------------------------------------------
+
+    def search_notes(
+        self,
+        keywords: list[str] | None = None,
+        folders: list[str] | None = None,
+        max_results: int = 30,
+    ) -> list[dict]:
+        """
+        Search vault notes and attachments by keyword and/or folder.
+
+        Returns a list of dicts with keys: filename, folder, frontmatter,
+        size_bytes, modified, word_count (0 for binary files).
+        Keywords are matched case-insensitively against the filename and
+        all frontmatter values.
+
+        Args:
+            keywords: Terms to match in filenames / frontmatter values.
+                      If empty or None, all files in the target folders
+                      are returned.
+            folders: Category folders to search. None means all folders
+                     (including Attachments).
+            max_results: Cap the number of returned matches.
+        """
+        search_folders = folders or list(CATEGORIES)
+        # Validate folder names
+        search_folders = [f for f in search_folders if f in VALID_FOLDERS]
+
+        lower_keywords = [k.lower() for k in (keywords or [])]
+        results: list[dict] = []
+
+        for folder in search_folders:
+            folder_path = self.base_path / folder
+            if not folder_path.exists():
+                continue
+
+            # Attachments contain binary files; other folders have .md
+            glob_pattern = "*" if folder == "Attachments" else "*.md"
+
+            for file_path in folder_path.glob(glob_pattern):
+                if not file_path.is_file():
+                    continue
+
+                # Parse frontmatter for markdown files only
+                is_md = file_path.suffix == ".md"
+                fm = self._parse_frontmatter(file_path) or {} if is_md else {}
+
+                if lower_keywords:
+                    searchable = file_path.stem.lower()
+                    for v in fm.values():
+                        searchable += " " + str(v).lower()
+
+                    if not any(kw in searchable for kw in lower_keywords):
+                        continue
+
+                # Enrich with file-system metadata
+                stat = file_path.stat()
+                word_count = 0
+                if is_md:
+                    try:
+                        text = file_path.read_text(encoding="utf-8")
+                        word_count = len(text.split())
+                    except Exception:
+                        pass
+
+                results.append(
+                    {
+                        "filename": file_path.name,
+                        "folder": folder,
+                        "frontmatter": fm,
+                        "size_bytes": stat.st_size,
+                        "modified": datetime.fromtimestamp(stat.st_mtime).strftime(
+                            "%Y-%m-%d %H:%M"
+                        ),
+                        "word_count": word_count,
+                    }
+                )
+
+                if len(results) >= max_results:
+                    return results
 
         return results
 

@@ -2,7 +2,7 @@
 listener.py — Slack event handlers.
 
 Handles incoming messages, downloads attachments,
-delegates to the Gemini processor, and saves results to the vault.
+delegates to the agent router, and replies in Slack.
 """
 
 import logging
@@ -11,8 +11,12 @@ import os
 import requests
 from google.genai import types
 
+from .agents import MessageContext, Router
 from .processor import GEMINI_BINARY_MIMES, TEXT_INLINE_MAX_BYTES, _normalize_mime
 from .vault import Vault
+
+# Maximum number of prior thread messages to include for context
+MAX_THREAD_MESSAGES = 10
 
 
 def download_slack_file(url: str) -> bytes:
@@ -127,18 +131,53 @@ def _process_attachments(files: list[dict], vault: Vault) -> list:
     return parts
 
 
-def register_listeners(app, vault: Vault, processor):
+def _fetch_thread_history(
+    client, channel: str, thread_ts: str, current_ts: str
+) -> list[dict]:
+    """
+    Fetch prior messages from a Slack thread for conversation context.
+
+    Returns a list of dicts with keys: role ('user' | 'assistant'), text.
+    Oldest messages first, capped at MAX_THREAD_MESSAGES.
+    The current message (current_ts) is excluded.
+    """
+    try:
+        resp = client.conversations_replies(
+            channel=channel,
+            ts=thread_ts,
+            limit=MAX_THREAD_MESSAGES + 5,  # fetch a few extra to filter
+        )
+    except Exception as e:
+        logging.warning("Failed to fetch thread history: %s", e)
+        return []
+
+    history = []
+    for msg in resp.get("messages", []):
+        # Skip the current message
+        if msg.get("ts") == current_ts:
+            continue
+        # Determine role
+        role = "assistant" if msg.get("bot_id") else "user"
+        text = msg.get("text", "").strip()
+        if text:
+            history.append({"role": role, "text": text})
+
+    # Cap and return oldest-first
+    return history[-MAX_THREAD_MESSAGES:]
+
+
+def register_listeners(app, vault: Vault, router: Router):
     """
     Register Slack event handlers on the given app.
 
     Args:
         app: The slack_bolt App instance.
         vault: Vault instance for file I/O.
-        processor: GeminiProcessor instance.
+        router: Router instance for dispatching messages to agents.
     """
 
     @app.event("message")
-    def handle_message(event, say):
+    def handle_message(event, say, client):
         # Allow file_share subtype, ignore all other subtypes and bots
         subtype = event.get("subtype")
         if (subtype and subtype != "file_share") or event.get("bot_id"):
@@ -146,29 +185,38 @@ def register_listeners(app, vault: Vault, processor):
 
         text = event.get("text") or ""
         files = event.get("files", [])
+        channel = event.get("channel", "")
+        thread_ts = event.get("thread_ts")
+        message_ts = event.get("ts", "")
         logging.info(f"📥 Incoming: {text[:60]}... ({len(files)} files)")
 
         try:
             # Process attachments
             attachment_context = _process_attachments(files, vault)
 
-            # Run through Gemini
-            data, token_count, is_answer = processor.process(text, attachment_context)
+            # Fetch thread history if this message is in a thread
+            thread_history = []
+            if thread_ts:
+                thread_history = _fetch_thread_history(
+                    client, channel, thread_ts, message_ts
+                )
+                logging.info("Thread context: %d prior messages", len(thread_history))
 
-            if is_answer:
-                say(str(data))
-                return
-
-            # Save the note
-            file_path = vault.save_note(
-                folder=data["folder"],
-                slug=data["slug"],
-                content=data["content"],
+            # Build context and route to the appropriate agent
+            context = MessageContext(
+                raw_text=text,
+                attachment_context=attachment_context,
+                vault=vault,
+                thread_history=thread_history,
             )
+            result = router.route(context)
 
-            folder = data["folder"]
-            filename = file_path.name
-            say(f"📂 Filed to `{folder}/` as `{filename}` ({token_count} tokens)")
+            if result.response_text:
+                # Reply in-thread if the message was in a thread
+                say(
+                    result.response_text,
+                    thread_ts=thread_ts or message_ts,
+                )
 
         except Exception as e:
             logging.exception("Error processing message")
