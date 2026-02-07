@@ -5,8 +5,12 @@ description = "agentic Slack capture system for 2nd brain"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "google-generativeai>=0.8.6",
+    "google-genai>=1.0.0",
     "python-dotenv>=1.2.1",
     "slack-bolt>=1.27.0",
     "requests>=2.31.0",
+    "schedule>=1.2.0",
 ]
+
+[project.scripts]
+brain = "src.brain.app:main"
