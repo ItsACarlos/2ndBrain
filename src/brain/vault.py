@@ -428,8 +428,6 @@ filters:
     - 'file.inFolder("Projects")'
     - 'file.ext == "md"'
 properties:
-  project_name:
-    displayName: Project
   priority:
     displayName: Priority
   date:
@@ -440,9 +438,9 @@ views:
   - type: table
     name: All Projects
     order:
+      - file.name
       - note.priority
       - note.date
-      - note.project_name
       - note.tags
 """
 
@@ -454,8 +452,6 @@ filters:
     - 'file.inFolder("Actions")'
     - 'file.ext == "md"'
 properties:
-  action_item:
-    displayName: Action
   status:
     displayName: Status
   due_date:
@@ -472,17 +468,17 @@ views:
         - 'status != "done"'
         - 'status != "completed"'
     order:
+      - file.name
       - note.due_date
       - note.priority
-      - note.action_item
       - note.status
       - note.project
   - type: table
     name: All Actions
     order:
+      - file.name
       - note.due_date
       - note.priority
-      - note.action_item
       - note.status
       - note.project
 """
@@ -510,6 +506,7 @@ views:
       property: note.media_type
       direction: ASC
     order:
+      - file.name
       - note.media_type
       - note.creator
       - note.status
@@ -520,6 +517,7 @@ views:
       and:
         - 'status == "to_consume"'
     order:
+      - file.name
       - note.media_type
       - note.creator
 """
@@ -542,6 +540,7 @@ views:
   - type: table
     name: All Reference
     order:
+      - file.name
       - note.topic
       - note.tags
       - note.date
@@ -573,6 +572,7 @@ views:
         - 'status != "done"'
         - 'status != "completed"'
     order:
+      - file.name
       - note.priority
       - note.due_date
       - note.status
@@ -582,6 +582,7 @@ views:
       and:
         - 'file.mtime > now() - "7 days"'
     order:
+      - file.name
       - file.mtime
       - note.category
   - type: table
@@ -592,6 +593,7 @@ views:
         - 'status != "done"'
         - 'status != "completed"'
     order:
+      - file.name
       - note.due_date
       - note.priority
 """
