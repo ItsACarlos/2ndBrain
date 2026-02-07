@@ -17,7 +17,7 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 load_dotenv()
-BASE_VAULT_PATH = Path.home() / "Documents" / "2ndBrain"
+BASE_VAULT_PATH = Path.home() / "Documents" / "2ndBrain" / "2ndBrainVault"
 # Ensure our core directories exist
 for folder in ["Inbox", "Projects", "Actions", "Ideas", "Media"]:
     (BASE_VAULT_PATH / folder).mkdir(parents=True, exist_ok=True)
