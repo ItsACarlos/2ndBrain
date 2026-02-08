@@ -1,4 +1,4 @@
-# 🚀 Universal Rclone Setup: Encrypted & Restricted
+# Rclone Setup: Encrypted & Restricted
 
 ```{note}
 Most of this guide is automated by running `./setup-gpg-pass.sh` followed by

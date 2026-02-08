@@ -58,6 +58,7 @@ src/brain/
     ├── Actions.base
     ├── Media.base
     ├── Reference.base
+    ├── Memories.base
     ├── Dashboard.base
     └── Dashboard.md
 service-units/
@@ -66,13 +67,24 @@ service-units/
 ├── rclone-2ndbrain-bisync.service  # rclone bisync oneshot (workstation)
 └── rclone-2ndbrain-bisync.timer    # 30s bisync timer (workstation)
 docs/
-├── architecture.md        # Agent architecture & design documentation
-├── architecture-decisions.md # Architecture Decision Records (ADRs)
-├── setup_rclone.md        # rclone + GPG/pass setup guide
-└── setup_slack_app.md     # Slack app creation + OAuth scopes guide
+├── index.md                   # Sphinx landing page (includes README)
+├── conf.py                    # Sphinx configuration
+├── explanations/
+│   ├── architecture.md        # Agent architecture & design documentation
+│   └── decisions.md           # Architecture Decision Records (ADRs)
+├── how-to/
+│   ├── contribute.md          # Contributing guide
+│   ├── setup_rclone.md        # rclone + GPG/pass setup guide
+│   └── setup_slack_app.md     # Slack app creation + OAuth scopes guide
+└── tutorials/
+    └── installation.md        # Installation tutorial
+migrate_old_vault/
+├── migrate_prompt.md          # System prompt for AI-assisted vault migration
+└── migrate_vault.py           # Standalone script for migrating an old vault
 install.sh           # Two-mode installer (--server / --workstation)
 setup-gpg-pass.sh    # GPG key, pass, keygrip preset automation
 restart.sh           # Convenience script for systemd reload/restart/logs
+Dockerfile           # Container build for the Slack listener
 pyproject.toml       # uv/pip metadata and dependencies
 .env                 # Runtime secrets (not committed)
 .env.template        # Template for .env

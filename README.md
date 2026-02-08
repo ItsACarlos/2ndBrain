@@ -17,11 +17,13 @@ Releases        | <https://github.com/gilesknap/2ndBrain/releases>
 ## Features
 
 - **AI-powered filing** — Gemini 2.5 Flash classifies content into
-  Projects, Actions, Media, Reference, or Inbox with structured frontmatter
+  Projects, Actions, Media, Reference, Memories, or Inbox with structured frontmatter
 - **Pluggable agent architecture** — Router dispatches messages to
   specialist agents; new capabilities are a single subclass away
 - **Vault queries** — Ask questions about your filed content
   ("What actions are due this week?", "List my recent media saves")
+- **Vault editing** — Modify existing notes in bulk
+  ("set priority to urgent on all epics-containers actions")
 - **Persistent memory** — Teach the bot rules via directives
   ("remember: always tag cooking recipes with #cooking")
 - **Thread context** — Reply in a Slack thread for natural follow-up
@@ -38,13 +40,11 @@ Releases        | <https://github.com/gilesknap/2ndBrain/releases>
 ```
 Slack message → listener.py (attachment prep + thread history)
   → Router (Gemini classification) → intent JSON
-  → FilingAgent | VaultQueryAgent | MemoryAgent | Direct answer
+  → FilingAgent | VaultQueryAgent | VaultEditAgent | MemoryAgent | Direct answer
   → reply posted in Slack thread
 ```
 
-See [Architecture](https://github.com/gilesknap/2ndBrain/blob/main/docs/explanations/architecture.md) for the full design
-including Mermaid diagrams, and [Agent Instructions](https://github.com/gilesknap/2ndBrain/blob/main/AGENTS.md) for comprehensive
-agent instructions.
+See [Architecture](explanations/architecture.md) for the full design.
 
 ## Tech Stack
 
@@ -57,41 +57,10 @@ agent instructions.
 | Services      | systemd user units (no root required)           |
 | Secrets       | GPG + `pass` for rclone config encryption        |
 
-## Quick Start
+## Getting Started
 
-```bash
-# 1. Set up GPG + pass (first time only)
-./setup-gpg-pass.sh
-
-# 2. Configure rclone remote (see docs/setup_rclone.md)
-rclone config
-
-# 3. Create .env from template
-cp .env.template .env
-# Fill in SLACK_BOT_TOKEN, SLACK_APP_TOKEN, GEMINI_API_KEY
-
-# 4. Install (choose one)
-./install.sh --server       # Headless: rclone mount + Slack listener
-./install.sh --workstation  # Desktop: rclone bisync for Obsidian
-
-# 5. Check it's running
-systemctl --user status brain.service
-journalctl --user -u brain.service -f
-```
-
-See [Slack App Setup](https://github.com/gilesknap/2ndBrain/blob/main/docs/how-to/setup_slack_app.md) for Slack app
-creation and OAuth scopes, and [rclone Setup](https://github.com/gilesknap/2ndBrain/blob/main/docs/how-to/setup_rclone.md)
-for rclone configuration details.
-
-## Documentation
-
-| Document                                                  | Contents                              |
-|-----------------------------------------------------------|---------------------------------------|
-| [AGENTS.md](https://github.com/gilesknap/2ndBrain/blob/main/AGENTS.md)                                    | Full agent instructions & project ref |
-| [Architecture](https://github.com/gilesknap/2ndBrain/blob/main/docs/explanations/architecture.md)              | Agent architecture & design           |
-| [Architecture Decisions](https://github.com/gilesknap/2ndBrain/blob/main/docs/explanations/decisions) | Architecture Decision Records   |
-| [rclone Setup](https://github.com/gilesknap/2ndBrain/blob/main/docs/how-to/setup_rclone.md)              | rclone + GPG/pass setup               |
-| [Slack App Setup](https://github.com/gilesknap/2ndBrain/blob/main/docs/how-to/setup_slack_app.md)        | Slack app creation guide              |
+See the [Quick Start](tutorials/quickstart.md) tutorial and the
+full [documentation](https://gilesknap.github.io/2ndBrain).
 
 ## License
 

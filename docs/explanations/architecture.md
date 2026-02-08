@@ -16,10 +16,12 @@ flowchart TD
     B --> C[Router<br/>Lightweight Gemini call<br/>classifies intent]
     C -->|intent: file| D[FilingAgent<br/>Classify & archive content<br/>gemini-2.5-flash]
     C -->|intent: vault_query| E[VaultQueryAgent<br/>Search vault + query Gemini<br/>gemini-2.5-flash]
+    C -->|intent: vault_edit| V[VaultEditAgent<br/>Modify existing notes<br/>gemini-2.5-flash]
     C -->|intent: memory| M[MemoryAgent<br/>Add/remove/list directives<br/>No Gemini call]
     C -->|intent: question| F[Direct answer<br/>from router response]
     C -->|intent: future| G[Future agents<br/>Subclass BaseAgent]
     D --> H[Save to vault + reply]
+    V --> H
     E --> I[Text answer in Slack]
     M --> I
     F --> I
@@ -120,8 +122,35 @@ into a compact summary, and sends that to Gemini with the user's question.
 | Prompt        | Built inline — system instructions + note metadata         |
 | Gemini calls  | 1 (router) + 1 (query) = **2 total**                      |
 
-Only filenames and frontmatter metadata are sent to Gemini (not full note
-bodies) to keep the prompt compact and token-efficient.
+The agent supports three query modes selected by the router:
+
+| Mode        | Strategy                                                                 |
+|-------------|--------------------------------------------------------------------------|
+| `default`   | Keyword search + frontmatter; top matches sent to Gemini                 |
+| `metadata`  | Full-vault index of filenames, sizes, dates, and frontmatter — no bodies |
+| `grep`      | Local text search across file contents; matching snippets sent to Gemini |
+
+For `default` and `metadata` modes only filenames and frontmatter metadata
+are sent to Gemini (not full note bodies) to keep the prompt compact and
+token-efficient. `grep` mode additionally sends short context snippets
+around each match.
+
+### VaultEditAgent (`agents/vault_edit.py`)
+
+Modifies existing vault notes — changing frontmatter fields like priority,
+status, tags, or due dates across one or many files. The router provides
+`search_terms`, `folders`, and optionally `target_files`; the agent finds
+candidates, sends them to Gemini to plan the edits, then applies the
+changes via `Vault.update_frontmatter()`.
+
+A safety limit of 10 files per request prevents accidental bulk damage.
+
+| Property      | Value                                                      |
+|---------------|------------------------------------------------------------|
+| Intent name   | `vault_edit`                                               |
+| Model         | `gemini-2.5-flash`                                         |
+| Prompt        | Built inline — system instructions + candidate metadata    |
+| Gemini calls  | 1 (router) + 1 (edit planner) = **2 total**               |
 
 ### Direct Answer (built into Router)
 
@@ -170,7 +199,8 @@ src/brain/
 ├── app.py               # Wires agents + router, starts Slack listener
 ├── listener.py          # Slack events → attachment prep → router.route()
 ├── processor.py         # Shared utilities: _extract_json, _inject_tokens
-├── vault.py             # Vault I/O including search_notes()
+├── vault.py             # Vault I/O including search_notes(), grep_notes()
+├── migrate.py           # Vault migration: rename, fix frontmatter, reclassify
 ├── prompt.md            # Filing agent system prompt
 └── agents/
     ├── __init__.py      # Package exports
@@ -178,7 +208,8 @@ src/brain/
     ├── router.py        # Intent classifier + dispatcher
     ├── router_prompt.md # Router system prompt (template with {{placeholders}})
     ├── filing.py        # FilingAgent
-    ├── vault_query.py   # VaultQueryAgent
+    ├── vault_query.py   # VaultQueryAgent (default/metadata/grep modes)
+    ├── vault_edit.py    # VaultEditAgent (bulk frontmatter updates)
     └── memory.py        # MemoryAgent (persistent directives)
 ```
 
@@ -226,24 +257,9 @@ classifying messages to it.
 
 ## Design Decisions
 
-### Why a two-call pattern?
+Key architectural decisions are recorded as
+[Architecture Decision Records](decisions.md):
 
-A single monolithic prompt that both classifies *and* executes every
-possible action would be fragile, hard to test, and wasteful — the filing
-prompt includes detailed formatting instructions that are irrelevant for
-vault queries. The router call is cheap (~200 tokens) and lets each agent
-use a focused, specialised prompt.
-
-### Why send only metadata for vault queries?
-
-Sending full note bodies would quickly exhaust the context window and
-increase cost. Filenames and YAML frontmatter contain enough information
-(title, dates, tags, status, project, media type, etc.) to answer most
-questions like "do I have actions due today?" or "what videos did I file
-this week?".
-
-### Why keep processor.py?
-
-`processor.py` contains shared utility functions (`_extract_json`,
-`_inject_tokens`) used by multiple agents. Keeping them in a central
-module avoids duplication without coupling agents to each other.
+- [ADR-4: Two-call router-agent pattern](decisions/0004-two-call-router-agent-pattern.md)
+- [ADR-5: Metadata-only vault queries](decisions/0005-metadata-only-vault-queries.md)
+- [ADR-6: Shared processor module](decisions/0006-shared-processor-module.md)
