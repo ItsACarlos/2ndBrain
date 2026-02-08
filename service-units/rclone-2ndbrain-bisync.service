@@ -4,9 +4,8 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 ExecStart=/usr/bin/rclone bisync gdrive-vault: %h/Documents/2ndBrain \
-  --password-command "pass rclone/gdrive-vault" \
+  --password-command "@@RCLONE_PASSWORD_CMD@@" \
   --resilient \
   --recover \
   --conflict-resolve newer

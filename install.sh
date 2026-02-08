@@ -4,6 +4,10 @@
 # Detects whether this machine is the server (runs the brain listener)
 # or a workstation (just syncs the vault for Obsidian).
 #
+# Credential setup for rclone is handled separately:
+#   - systemd ≥ 256: run ./setup-systemd-creds.sh (auto-start on boot)
+#   - Older systemd: run ./setup-gpg-pass.sh  (manual start via ./start-brain.sh)
+#
 # Server mode:   rclone mount + brain.service
 # Workstation:   rclone bisync on a 30s timer
 #
@@ -48,7 +52,7 @@ echo
 # -----------------------------------------------------------------------
 # 1. Check prerequisites
 # -----------------------------------------------------------------------
-REQUIRED_CMDS=(rclone pass)
+REQUIRED_CMDS=(rclone)
 if [[ "${MODE}" == "server" ]]; then
     REQUIRED_CMDS+=(uv python3)
 fi
@@ -60,29 +64,48 @@ for cmd in "${REQUIRED_CMDS[@]}"; do
     fi
 done
 
-# Check rclone config password is in pass
-if ! pass show rclone/gdrive-vault &>/dev/null; then
-    echo "ERROR: rclone config password not found in pass store."
+# -----------------------------------------------------------------------
+# 1b. Detect credential method
+# -----------------------------------------------------------------------
+# systemd-creds --user requires systemd ≥ 256.  Fall back to GPG + pass.
+CRED_METHOD=""
+SYSTEMD_VER=$(systemctl --version 2>/dev/null | head -1 | awk '{print $2}')
+
+if command -v systemd-creds &>/dev/null && [[ "${SYSTEMD_VER}" -ge 256 ]] 2>/dev/null; then
+    CRED_METHOD="systemd-creds"
+elif command -v pass &>/dev/null; then
+    CRED_METHOD="gpg"
+else
+    echo "ERROR: No supported credential method found."
     echo
-    echo "  Run the GPG + pass setup script first:"
-    echo "    ./setup-gpg-pass.sh"
-    echo
-    echo "  This will create a GPG key, initialise pass, store the rclone"
-    echo "  password, and configure the keygrip preset for headless operation."
-    echo "  See docs/setup_rclone.md for full details."
-    echo
-    echo "  Then re-run this installer."
+    echo "  Option 1 (systemd ≥ 256): systemd-creds is used automatically."
+    echo "  Option 2 (older systemd): install 'pass' and 'gpg', then run"
+    echo "           ./setup-gpg-pass.sh"
     exit 1
 fi
+echo "→ Credential method: ${CRED_METHOD} (systemd ${SYSTEMD_VER})"
 
-# Check rclone remote exists
-if ! rclone listremotes --password-command "pass rclone/gdrive-vault" 2>/dev/null | grep -q "^gdrive-vault:"; then
-    echo "ERROR: rclone remote 'gdrive-vault:' not found."
-    echo "  Run 'rclone config' to set it up. See docs/setup_rclone.md."
-    exit 1
+# Set the password command that rclone will use
+if [[ "${CRED_METHOD}" == "systemd-creds" ]]; then
+    CRED_FILE="${HOME}/.config/2ndbrain/rclone-config-pass.cred"
+    RCLONE_PASSWORD_CMD="systemd-creds decrypt --user --name=rclone-config-pass ${CRED_FILE} -"
+else
+    RCLONE_PASSWORD_CMD="pass rclone/gdrive-vault"
 fi
 
-echo "→ rclone remote and password store OK."
+# Check rclone remote exists.  Use --ask-password=false to avoid hanging
+# when the config is encrypted and no password command is available yet.
+if rclone --ask-password=false listremotes 2>/dev/null | grep -q "^gdrive-vault:"; then
+    echo "→ rclone remote OK."
+elif [[ "${CRED_METHOD}" == "gpg" ]] && \
+     rclone listremotes --password-command "pass rclone/gdrive-vault" 2>/dev/null | grep -q "^gdrive-vault:"; then
+    echo "→ rclone remote OK (via pass)."
+else
+    echo "⚠  Could not verify rclone remote 'gdrive-vault:'."
+    echo "   If rclone.conf is encrypted, the check will pass after"
+    echo "   setting up credential encryption. See docs/how-to/setup_rclone.md."
+    echo
+fi
 
 # -----------------------------------------------------------------------
 # 2. Python environment (server only)
@@ -124,7 +147,9 @@ if [[ "${MODE}" == "server" ]]; then
     # --- Server: rclone mount + brain listener ---
 
     echo "→ Installing rclone-2ndbrain.service..."
-    cp "${SCRIPT_DIR}/service-units/rclone-2ndbrain.service" "${UNIT_DIR}/"
+    sed -e "s|@@RCLONE_PASSWORD_CMD@@|${RCLONE_PASSWORD_CMD}|g" \
+        "${SCRIPT_DIR}/service-units/rclone-2ndbrain.service" \
+        > "${UNIT_DIR}/rclone-2ndbrain.service"
 
     echo "→ Installing brain.service..."
     sed "s|@@PROJECT_DIR@@|${SCRIPT_DIR}|g" \
@@ -140,7 +165,9 @@ else
     # --- Workstation: rclone bisync on a timer ---
 
     echo "→ Installing rclone-2ndbrain-bisync.service..."
-    cp "${SCRIPT_DIR}/service-units/rclone-2ndbrain-bisync.service" "${UNIT_DIR}/"
+    sed -e "s|@@RCLONE_PASSWORD_CMD@@|${RCLONE_PASSWORD_CMD}|g" \
+        "${SCRIPT_DIR}/service-units/rclone-2ndbrain-bisync.service" \
+        > "${UNIT_DIR}/rclone-2ndbrain-bisync.service"
 
     echo "→ Installing rclone-2ndbrain-bisync.timer..."
     cp "${SCRIPT_DIR}/service-units/rclone-2ndbrain-bisync.timer" "${UNIT_DIR}/"
@@ -158,15 +185,6 @@ echo
 echo "→ Reloading systemd user daemon..."
 systemctl --user daemon-reload
 
-if [[ "${MODE}" == "server" ]]; then
-    echo "→ Enabling server services..."
-    systemctl --user enable rclone-2ndbrain.service
-    systemctl --user enable brain.service
-else
-    echo "→ Enabling bisync timer..."
-    systemctl --user enable rclone-2ndbrain-bisync.timer
-fi
-
 # -----------------------------------------------------------------------
 # 6. Ensure sync directory exists
 # -----------------------------------------------------------------------
@@ -182,37 +200,75 @@ if [[ "${MODE}" == "server" ]]; then
         echo "   After creating .env, run:"
         echo "     systemctl --user start rclone-2ndbrain.service"
         echo "     systemctl --user start brain.service"
-    else
-        echo "→ (Re)starting rclone-2ndbrain.service..."
-        systemctl --user restart rclone-2ndbrain.service
-        sleep 2
-
-        echo "→ (Re)starting brain.service..."
-        systemctl --user restart brain.service
-        sleep 1
-
+    elif [[ "${CRED_METHOD}" == "gpg" ]]; then
+        echo "→ Enabling server services (will start via ./start-brain.sh)..."
+        systemctl --user enable rclone-2ndbrain.service
+        systemctl --user enable brain.service
         echo
-        echo "✓ Server services are running. Check logs with:"
-        echo "    journalctl --user -u brain.service -f"
+        echo "⚠  GPG credential method — services will not auto-start."
+        echo "   After each reboot, run:"
+        echo "     ./start-brain.sh"
+    else
+        # systemd-creds: check if credential file exists
+        if [[ ! -f "${CRED_FILE}" ]]; then
+            echo
+            echo "→ Service units installed. Now run:"
+            echo "    ./setup-systemd-creds.sh"
+            echo "  to encrypt the rclone config password and start the services."
+        else
+            echo "→ Enabling and (re)starting server services..."
+            systemctl --user enable rclone-2ndbrain.service
+            systemctl --user enable brain.service
+
+            echo "→ (Re)starting rclone-2ndbrain.service..."
+            systemctl --user restart rclone-2ndbrain.service
+            sleep 2
+
+            echo "→ (Re)starting brain.service..."
+            systemctl --user restart brain.service
+            sleep 1
+
+            echo
+            echo "✓ Server services are running. Check logs with:"
+            echo "    journalctl --user -u brain.service -f"
+        fi
     fi
 else
     # Workstation: run initial bisync with --resync if no prior state
     BISYNC_STATE="${HOME}/.cache/rclone/bisync"
-    if [[ ! -d "${BISYNC_STATE}" ]] || [[ -z "$(ls -A "${BISYNC_STATE}" 2>/dev/null)" ]]; then
-        echo "→ Running initial bisync (--resync to establish baseline)..."
-        rclone bisync gdrive-vault: "${MOUNT_DIR}" \
-            --password-command "pass rclone/gdrive-vault" \
-            --resync
-        echo "  Baseline sync complete."
+    if [[ "${CRED_METHOD}" == "gpg" ]]; then
+        echo "→ Enabling bisync timer (will start via ./start-brain.sh)..."
+        systemctl --user enable rclone-2ndbrain-bisync.timer
+        echo
+        echo "⚠  GPG credential method — services will not auto-start."
+        echo "   After each reboot, run:"
+        echo "     ./start-brain.sh"
+    else
+        # systemd-creds: check if credential file exists
+        if [[ ! -f "${CRED_FILE:-}" ]]; then
+            echo
+            echo "→ Service units installed. Now run:"
+            echo "    ./setup-systemd-creds.sh"
+            echo "  to encrypt the rclone config password and start the timer."
+        else
+            echo "→ Enabling bisync timer..."
+            systemctl --user enable rclone-2ndbrain-bisync.timer
+
+            if [[ ! -d "${BISYNC_STATE}" ]] || [[ -z "$(ls -A "${BISYNC_STATE}" 2>/dev/null)" ]]; then
+                echo "→ Running initial bisync (--resync to establish baseline)..."
+                systemctl --user start rclone-2ndbrain-bisync.service
+                echo "  Baseline sync triggered."
+            fi
+
+            echo "→ Starting bisync timer..."
+            systemctl --user start rclone-2ndbrain-bisync.timer
+
+            echo
+            echo "✓ Bisync timer is running (every 30s). Check status with:"
+            echo "    systemctl --user status rclone-2ndbrain-bisync.timer"
+            echo "    systemctl --user list-timers"
+        fi
     fi
-
-    echo "→ Starting bisync timer..."
-    systemctl --user start rclone-2ndbrain-bisync.timer
-
-    echo
-    echo "✓ Bisync timer is running (every 30s). Check status with:"
-    echo "    systemctl --user status rclone-2ndbrain-bisync.timer"
-    echo "    systemctl --user list-timers"
 fi
 
 echo

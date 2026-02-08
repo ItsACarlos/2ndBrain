@@ -48,6 +48,8 @@ See [Architecture](explanations/architecture.md) for the full design.
 
 See [Prompts](reference/prompts.md) for the Gemini system instructions.
 
+See [Security](explanations/security.md) for the threat model and hardening guide.
+
 ## Tech Stack
 
 | Component     | Technology                                      |
@@ -57,7 +59,7 @@ See [Prompts](reference/prompts.md) for the Gemini system instructions.
 | Messaging     | Slack Bolt (Socket Mode)                        |
 | Vault         | Obsidian, synced via rclone to Google Drive      |
 | Services      | systemd user units (no root required)           |
-| Secrets       | GPG + `pass` for rclone config encryption        |
+| Secrets       | `systemd-creds` (≥ 256) or GPG + `pass` fallback |
 
 ## Getting Started
 

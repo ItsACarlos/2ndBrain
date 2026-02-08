@@ -48,21 +48,7 @@ Verify the installation:
 uv run brain --version
 ```
 
-## 2. Set up GPG + pass
-
-The rclone configuration is encrypted with GPG. Run the automated setup
-script (first time only):
-
-```bash
-./setup-gpg-pass.sh
-```
-
-This creates a GPG key, initialises the `pass` password store, and
-configures `gpg-agent` for non-interactive decryption. See
-[rclone Setup](../how-to/setup_rclone.md) for manual steps and
-troubleshooting.
-
-## 3. Configure rclone and create the Slack app
+## 2. Configure rclone and create the Slack app
 
 These two steps can be done in any order:
 
@@ -77,7 +63,7 @@ These two steps can be done in any order:
   rclone config
   ```
 
-## 4. Configure environment variables
+## 3. Configure environment variables
 
 ```bash
 cp .env.template .env
@@ -98,7 +84,7 @@ Optional settings:
 | `BRIEFING_CHANNEL` | *(none)* | Slack channel ID for daily briefing |
 | `BRIEFING_TIME`    | `07:00`  | Time for the daily briefing       |
 
-## 5. Deploy
+## 4. Deploy
 
 Choose the deployment mode that matches your machine:
 
@@ -116,9 +102,60 @@ For the server mode, enable linger so the service starts on boot:
 sudo loginctl enable-linger $USER
 ```
 
-## Verify it's running
+## 5. Set up credential encryption
+
+The rclone configuration is encrypted at rest and needs a password at
+runtime. The service units must be installed (step 4) before this step.
+Two backends are supported — check which one your system can use:
 
 ```bash
+systemctl --version | head -1
+```
+
+### systemd ≥ 256 → `systemd-creds`
+
+If the version is **256 or higher**, use the hardware-backed credential
+encryption:
+
+```bash
+./setup-systemd-creds.sh
+```
+
+This encrypts the rclone password to the host's TPM/credential key and
+injects it into the installed service units. Services auto-start on boot
+with no manual unlock needed.
+
+### systemd < 256 → GPG + `pass`
+
+On older systemd (Ubuntu 24.04 = 255, RHEL 9 ≈ 252), fall back to GPG:
+
+```bash
+./setup-gpg-pass.sh
+```
+
+This creates a GPG key, initialises the `pass` password store, and
+stores the rclone config password. **Services are not auto-enabled** in
+this mode — after each reboot you must unlock GPG and start them
+manually with:
+
+```bash
+./start-brain.sh
+```
+
+This prompts for your GPG passphrase, caches it in `gpg-agent`, and
+starts the appropriate services for your deployment mode.
+
+See [rclone Setup](../how-to/setup_rclone.md) for manual steps and
+troubleshooting.
+
+## Verify it's running
+
+### Server
+
+Check that both the rclone mount and the brain listener are active:
+
+```bash
+systemctl --user status rclone-2ndbrain.service
 systemctl --user status brain.service
 journalctl --user -u brain.service -f
 ```
@@ -132,6 +169,19 @@ You should see:
 
 Send a DM to your bot in Slack — it should respond and file the note
 into the vault.
+
+### Workstation
+
+Check that the bisync timer is firing:
+
+```bash
+systemctl --user list-timers rclone-2ndbrain-bisync.timer
+systemctl --user status rclone-2ndbrain-bisync.service
+```
+
+The timer should show a `LAST` trigger within the last 30 seconds. Open
+Obsidian and confirm the vault folder appears at
+`~/Documents/2ndBrain/2ndBrainVault/`.
 
 ## Next steps
 

@@ -255,6 +255,11 @@ The router prompt rebuilds itself from agent descriptions on every call,
 so simply registering the agent is enough for the router to start
 classifying messages to it.
 
+## Security
+
+For a comprehensive analysis of security risks, mitigations, and hardening
+recommendations, see [Security](security.md).
+
 ## Design Decisions
 
 Key architectural decisions are recorded as
