@@ -9,11 +9,14 @@ Supports three query modes:
 
 import logging
 from datetime import datetime
+from pathlib import Path
 
 from google import genai
 
 from .base import AgentResult, BaseAgent, MessageContext, format_thread_history
 from .router import Router
+
+_VAULT_QUERY_PROMPT_FILE = Path(__file__).parent / "vault_query_prompt.md"
 
 
 class VaultQueryAgent(BaseAgent):
@@ -285,16 +288,9 @@ class VaultQueryAgent(BaseAgent):
             "say so."
         )
 
-        system = (
-            "You are a helpful assistant answering questions about "
-            "the user's Obsidian vault.  The vault is a personal "
-            "knowledge base organised into folders: Projects, "
-            "Actions, Media, Reference, Memories, Inbox.\n\n"
-            f"Current time: {current_time}\n\n"
-            f"{data_description}\n\n"
-            "Respond in concise, conversational plain text suitable "
-            "for Slack.  Use bullet points or numbered lists where "
-            "appropriate.  Do NOT return JSON."
+        prompt_template = _VAULT_QUERY_PROMPT_FILE.read_text(encoding="utf-8")
+        system = prompt_template.replace("{current_time}", current_time).replace(
+            "{data_description}", data_description
         )
 
         parts = [

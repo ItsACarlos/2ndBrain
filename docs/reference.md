@@ -7,6 +7,7 @@ Technical reference material including APIs and release notes.
 :glob:
 
 API <_api/brain>
+reference/prompts
 genindex
 Release Notes <https://github.com/gilesknap/2ndBrain/releases>
 ```

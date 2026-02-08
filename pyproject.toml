@@ -46,7 +46,7 @@ dev = [
 brain = "brain.__main__:main"
 
 [tool.setuptools.package-data]
-brain = ["vault_templates/*"]
+brain = ["vault_templates/*", "*.md", "agents/*.md"]
 
 [project.urls]
 GitHub = "https://github.com/gilesknap/2ndBrain"
