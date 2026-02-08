@@ -51,6 +51,7 @@ src/brain/
 │   ├── router_prompt.md # System prompt for the router's classification call
 │   ├── filing.py        # FilingAgent — classifies & archives content to vault
 │   ├── vault_query.py   # VaultQueryAgent — searches vault & answers questions
+│   ├── vault_edit.py    # VaultEditAgent — modifies frontmatter in existing notes
 │   └── memory.py        # MemoryAgent — add/remove/list persistent directives
 └── vault_templates/     # Obsidian .base and .md templates synced to the vault
     ├── Projects.base
@@ -141,6 +142,7 @@ Slack message → listener.py (attachment prep + thread history fetch)
   → intent == "question"  → direct answer (no second call)
   → intent == "file"      → FilingAgent.handle()  → save to vault
   → intent == "vault_query" → VaultQueryAgent.handle() → search + answer
+  → intent == "vault_edit"  → VaultEditAgent.handle()  → modify existing notes
   → intent == "memory"     → MemoryAgent.handle()  → add/remove/list directives
   → intent == <new agent> → YourAgent.handle()
   ← reply posted in-thread (if message was threaded)
@@ -152,6 +154,7 @@ Slack message → listener.py (attachment prep + thread history fetch)
 |---------------|------------------|---------------------------------------------|
 | `file`        | `FilingAgent`    | Classify and archive content into the vault |
 | `vault_query` | `VaultQueryAgent`| Search vault notes and answer questions     |
+| `vault_edit`  | `VaultEditAgent` | Modify frontmatter fields in existing notes |
 | `memory`      | `MemoryAgent`    | Add, remove, or list persistent directives  |
 
 ### Adding a New Agent

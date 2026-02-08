@@ -14,6 +14,7 @@ included in intent routing.
 from .base import AgentResult, BaseAgent, MessageContext, format_thread_history
 from .memory import MemoryAgent
 from .router import Router
+from .vault_edit import VaultEditAgent
 
 __all__ = [
     "BaseAgent",
@@ -21,5 +22,6 @@ __all__ = [
     "MemoryAgent",
     "MessageContext",
     "Router",
+    "VaultEditAgent",
     "format_thread_history",
 ]

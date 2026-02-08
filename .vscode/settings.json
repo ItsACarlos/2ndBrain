@@ -9,4 +9,25 @@
     "[python]": {
         "editor.defaultFormatter": "charliermarsh.ruff",
     },
+    "files.watcherExclude": {
+        "**/.venv/**": true,
+        "**/.tox/**": true,
+        "**/build/**": true,
+        "**/__pycache__/**": true,
+        "**/*.egg-info/**": true,
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/.mypy_cache/**": true,
+        "**/.ruff_cache/**": true
+    },
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/*.egg-info": true
+    },
+    "search.exclude": {
+        "**/.venv": true,
+        "**/.tox": true,
+        "**/build": true,
+        "**/__pycache__": true
+    }
 }

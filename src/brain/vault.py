@@ -173,6 +173,98 @@ class Vault:
         return file_path
 
     # ------------------------------------------------------------------
+    # Note editing
+    # ------------------------------------------------------------------
+
+    def update_frontmatter(
+        self,
+        file_path: Path,
+        updates: dict[str, str | None],
+    ) -> dict[str, str]:
+        """Update YAML frontmatter fields in an existing markdown note.
+
+        Args:
+            file_path: Absolute path to the .md file.
+            updates: Dict of field→value. Set value to ``None``
+                     to remove a field.
+
+        Returns:
+            Dict of actually changed fields {field: new_value}
+            (or {field: "<removed>"} for deletions).
+
+        Raises:
+            FileNotFoundError: If *file_path* does not exist.
+            ValueError: If the file has no YAML frontmatter block.
+        """
+        if not file_path.exists():
+            raise FileNotFoundError(file_path)
+
+        text = file_path.read_text(encoding="utf-8")
+        if not text.startswith("---"):
+            raise ValueError(f"No frontmatter block in {file_path.name}")
+
+        end = text.find("---", 3)
+        if end == -1:
+            raise ValueError(f"Unterminated frontmatter in {file_path.name}")
+
+        fm_block = text[3:end]
+        body = text[end + 3 :]  # everything after the closing ---
+
+        # Parse existing lines preserving order
+        fm_lines: list[str] = fm_block.strip().splitlines()
+        existing_keys: dict[str, int] = {}
+        for i, line in enumerate(fm_lines):
+            if ":" in line:
+                key = line.partition(":")[0].strip()
+                existing_keys[key] = i
+
+        changed: dict[str, str] = {}
+
+        for key, value in updates.items():
+            if value is None:
+                # Remove field
+                if key in existing_keys:
+                    idx = existing_keys[key]
+                    fm_lines[idx] = ""  # blank it, cleaned up below
+                    changed[key] = "<removed>"
+            else:
+                new_line = f"{key}: {value}"
+                if key in existing_keys:
+                    idx = existing_keys[key]
+                    if fm_lines[idx].strip() != new_line:
+                        fm_lines[idx] = new_line
+                        changed[key] = str(value)
+                else:
+                    fm_lines.append(new_line)
+                    changed[key] = str(value)
+
+        if not changed:
+            return changed
+
+        # Re-assemble file
+        cleaned = [ln for ln in fm_lines if ln.strip()]
+        new_fm = "\n".join(cleaned)
+        new_text = f"---\n{new_fm}\n---{body}"
+        file_path.write_text(new_text, encoding="utf-8")
+        logging.info("Updated frontmatter in %s: %s", file_path.name, changed)
+        return changed
+
+    def find_note(self, filename: str, folder: str | None = None) -> Path | None:
+        """Locate a note by exact filename, optionally limited to a folder.
+
+        Returns the absolute path, or ``None`` if not found.
+        """
+        if folder:
+            candidate = self.base_path / folder / filename
+            return candidate if candidate.is_file() else None
+
+        for cat in CATEGORIES:
+            candidate = self.base_path / cat / filename
+            if candidate.is_file():
+                return candidate
+        return None
+
+    # ------------------------------------------------------------------
     # Attachment handling
     # ------------------------------------------------------------------
 
@@ -370,6 +462,138 @@ class Vault:
                             "%Y-%m-%d %H:%M"
                         ),
                         "word_count": word_count,
+                    }
+                )
+
+                if len(results) >= max_results:
+                    return results
+
+        return results
+
+    # ------------------------------------------------------------------
+    # Metadata index (lightweight — no file contents sent to Gemini)
+    # ------------------------------------------------------------------
+
+    def index_all_notes(
+        self,
+        folders: list[str] | None = None,
+        max_results: int = 500,
+    ) -> list[dict]:
+        """Build a compact metadata index of every note in the vault.
+
+        Returns a list of dicts with: filename, folder, size_bytes,
+        modified, word_count, and frontmatter.
+        No file body text is loaded — only stat() and frontmatter.
+        """
+        search_folders = folders or list(CATEGORIES)
+        search_folders = [f for f in search_folders if f in VALID_FOLDERS]
+        results: list[dict] = []
+
+        for folder in search_folders:
+            folder_path = self.base_path / folder
+            if not folder_path.exists():
+                continue
+
+            glob = "*" if folder == "Attachments" else "*.md"
+            for fp in folder_path.glob(glob):
+                if not fp.is_file():
+                    continue
+
+                is_md = fp.suffix == ".md"
+                fm = (self._parse_frontmatter(fp) or {}) if is_md else {}
+                stat = fp.stat()
+
+                # Word count from size estimate (avoids full read)
+                word_count = 0
+                if is_md:
+                    # ~6 bytes per word is a rough English estimate
+                    word_count = stat.st_size // 6
+
+                results.append(
+                    {
+                        "filename": fp.name,
+                        "folder": folder,
+                        "frontmatter": fm,
+                        "size_bytes": stat.st_size,
+                        "modified": datetime.fromtimestamp(stat.st_mtime).strftime(
+                            "%Y-%m-%d %H:%M"
+                        ),
+                        "word_count": word_count,
+                    }
+                )
+                if len(results) >= max_results:
+                    return results
+
+        return results
+
+    # ------------------------------------------------------------------
+    # Grep search (returns matching filenames + snippets)
+    # ------------------------------------------------------------------
+
+    def grep_notes(
+        self,
+        pattern: str,
+        folders: list[str] | None = None,
+        max_results: int = 100,
+        context_chars: int = 80,
+    ) -> list[dict]:
+        """Search vault file contents for a text pattern.
+
+        Returns a list of dicts with: filename, folder, matches
+        (list of short context snippets around each hit).
+
+        This is a local operation — no Gemini call required.
+        """
+        search_folders = folders or list(CATEGORIES)
+        search_folders = [f for f in search_folders if f in VALID_FOLDERS]
+        lower_pattern = pattern.lower()
+        results: list[dict] = []
+
+        for folder in search_folders:
+            folder_path = self.base_path / folder
+            if not folder_path.exists():
+                continue
+
+            for fp in folder_path.glob("*.md"):
+                if not fp.is_file():
+                    continue
+
+                try:
+                    text = fp.read_text(encoding="utf-8")
+                except Exception:
+                    continue
+
+                lower_text = text.lower()
+                positions = []
+                start = 0
+                while True:
+                    idx = lower_text.find(lower_pattern, start)
+                    if idx == -1:
+                        break
+                    positions.append(idx)
+                    start = idx + 1
+
+                if not positions:
+                    continue
+
+                # Extract short snippets around each match
+                snippets: list[str] = []
+                for pos in positions[:3]:  # max 3 snippets per file
+                    snip_start = max(0, pos - context_chars)
+                    snip_end = min(len(text), pos + len(pattern) + context_chars)
+                    snippet = text[snip_start:snip_end].replace("\n", " ")
+                    if snip_start > 0:
+                        snippet = "..." + snippet
+                    if snip_end < len(text):
+                        snippet = snippet + "..."
+                    snippets.append(snippet)
+
+                results.append(
+                    {
+                        "filename": fp.name,
+                        "folder": folder,
+                        "match_count": len(positions),
+                        "snippets": snippets,
                     }
                 )
 

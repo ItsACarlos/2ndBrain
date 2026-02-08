@@ -18,6 +18,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from .agents import Router
 from .agents.filing import FilingAgent
 from .agents.memory import MemoryAgent
+from .agents.vault_edit import VaultEditAgent
 from .agents.vault_query import VaultQueryAgent
 from .briefing import start_scheduler
 from .listener import register_listeners
@@ -59,6 +60,7 @@ def main():
     # Initialise pluggable agents
     filing_agent = FilingAgent(existing_projects=vault.list_projects())
     vault_query_agent = VaultQueryAgent()
+    vault_edit_agent = VaultEditAgent()
     memory_agent = MemoryAgent()
 
     # Build the router with registered agents
@@ -66,6 +68,7 @@ def main():
         agents={
             filing_agent.name: filing_agent,
             vault_query_agent.name: vault_query_agent,
+            vault_edit_agent.name: vault_edit_agent,
             memory_agent.name: memory_agent,
         },
         default_agent="file",

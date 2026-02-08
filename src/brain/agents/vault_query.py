@@ -1,9 +1,10 @@
 """
 vault_query.py — Vault Query agent: searches the vault and answers questions.
 
-Searches for matching notes by keyword / folder, collects their names and
-YAML frontmatter metadata, then sends a focused query to Gemini to answer
-the user's question about their filed content.
+Supports three query modes:
+- **default**: keyword search + frontmatter, top matches sent to Gemini
+- **metadata**: lightweight full-vault index (name, size, date, frontmatter)
+- **grep**: local text search across file contents, results sent to Gemini
 """
 
 import logging
@@ -21,7 +22,8 @@ class VaultQueryAgent(BaseAgent):
     name = "vault_query"
     description = (
         "Answers questions about previously saved vault content — "
-        "open actions, filed media, project notes, recent captures, etc."
+        "open actions, filed media, project notes, recent captures, etc. "
+        "Supports metadata listings, text search, and content queries."
     )
 
     def __init__(self):
@@ -33,10 +35,26 @@ class VaultQueryAgent(BaseAgent):
     # ------------------------------------------------------------------
 
     def handle(self, context: MessageContext) -> AgentResult:
-        """Search the vault, build a retrieval prompt, and answer."""
+        """Route to the appropriate query strategy."""
+
+        mode = context.router_data.get("query_mode", "default")
+
+        if mode == "metadata":
+            return self._handle_metadata(context)
+        elif mode == "grep":
+            return self._handle_grep(context)
+        else:
+            return self._handle_default(context)
+
+    # ------------------------------------------------------------------
+    # Strategy: default (keyword search, limited matches)
+    # ------------------------------------------------------------------
+
+    def _handle_default(self, context: MessageContext) -> AgentResult:
+        """Original strategy: keyword + frontmatter search."""
 
         search_terms = context.router_data.get("search_terms", [])
-        folders = context.router_data.get("folders")  # list or None
+        folders = context.router_data.get("folders")
         question = context.router_data.get("question", context.raw_text)
 
         matches = context.vault.search_notes(
@@ -44,8 +62,6 @@ class VaultQueryAgent(BaseAgent):
             folders=folders,
         )
 
-        # If keyword search returned nothing, retry without keywords
-        # so aggregate queries ("largest", "most recent") still work.
         if not matches and search_terms:
             logging.info(
                 "VaultQuery: no matches for %s, retrying without keywords",
@@ -59,18 +75,124 @@ class VaultQueryAgent(BaseAgent):
         if not matches:
             return AgentResult(
                 response_text=(
-                    "I searched the vault but didn't find any matching notes. "
-                    "Try rephrasing your question or being more specific about "
-                    "what you're looking for."
+                    "I searched the vault but didn't find any matching "
+                    "notes. Try rephrasing your question or being more "
+                    "specific about what you're looking for."
                 ),
                 tokens_used=0,
             )
 
-        # Build a compact representation of each match
         note_summaries = self._format_matches(matches)
-
         prompt = self._build_prompt(question, note_summaries, context)
 
+        return self._ask_gemini(prompt, len(matches), "default")
+
+    # ------------------------------------------------------------------
+    # Strategy: metadata (full-vault index, no file contents)
+    # ------------------------------------------------------------------
+
+    def _handle_metadata(self, context: MessageContext) -> AgentResult:
+        """Lightweight index of all vault files for stats/listing queries."""
+
+        folders = context.router_data.get("folders")
+        question = context.router_data.get("question", context.raw_text)
+
+        index = context.vault.index_all_notes(
+            folders=folders,
+            max_results=500,
+        )
+
+        if not index:
+            return AgentResult(
+                response_text="The vault appears to be empty.",
+                tokens_used=0,
+            )
+
+        note_summaries = self._format_matches(index)
+
+        prompt = self._build_prompt(
+            question,
+            note_summaries,
+            context,
+            preamble=(
+                "Below is a complete metadata index of ALL notes in the "
+                "vault (no file body text, just filenames, folders, "
+                "sizes, dates, and frontmatter properties). "
+                f"Total files: {len(index)}.\n\n"
+                "Use this to answer the user's question about "
+                "statistics, rankings, listings, or file properties."
+            ),
+        )
+
+        return self._ask_gemini(prompt, len(index), "metadata")
+
+    # ------------------------------------------------------------------
+    # Strategy: grep (local text search, no full contents to Gemini)
+    # ------------------------------------------------------------------
+
+    def _handle_grep(self, context: MessageContext) -> AgentResult:
+        """Text search across vault file contents."""
+
+        search_terms = context.router_data.get("search_terms", [])
+        folders = context.router_data.get("folders")
+        question = context.router_data.get("question", context.raw_text)
+
+        if not search_terms:
+            return AgentResult(
+                response_text=(
+                    "I need a search term to grep for. "
+                    "What word or phrase should I look for?"
+                ),
+                tokens_used=0,
+            )
+
+        # Search for each term and merge results
+        all_results: list[dict] = []
+        seen: set[str] = set()
+
+        for term in search_terms:
+            hits = context.vault.grep_notes(
+                pattern=term,
+                folders=folders,
+                max_results=100,
+            )
+            for hit in hits:
+                key = f"{hit['folder']}/{hit['filename']}"
+                if key not in seen:
+                    seen.add(key)
+                    all_results.append(hit)
+
+        if not all_results:
+            terms_str = ", ".join(f'"{t}"' for t in search_terms)
+            return AgentResult(
+                response_text=(f"No files in the vault contain {terms_str}."),
+                tokens_used=0,
+            )
+
+        grep_summary = self._format_grep_results(all_results)
+
+        prompt = self._build_prompt(
+            question,
+            grep_summary,
+            context,
+            preamble=(
+                "Below are the results of a text search across all "
+                "vault files. Each entry shows the filename, folder, "
+                "number of matches, and short context snippets around "
+                f"each match. Total files matched: {len(all_results)}."
+            ),
+        )
+
+        return self._ask_gemini(prompt, len(all_results), "grep")
+
+    # ------------------------------------------------------------------
+    # Shared helpers
+    # ------------------------------------------------------------------
+
+    def _ask_gemini(
+        self, prompt: list[str], match_count: int, mode: str
+    ) -> AgentResult:
+        """Send the assembled prompt to Gemini and return the result."""
         try:
             response = self.client.models.generate_content(
                 model=self.model_name,
@@ -86,8 +208,9 @@ class VaultQueryAgent(BaseAgent):
             else 0
         )
         logging.info(
-            "VaultQuery: %d matches, %d tokens",
-            len(matches),
+            "VaultQuery [%s]: %d matches, %d tokens",
+            mode,
+            match_count,
             tokens,
         )
 
@@ -112,7 +235,7 @@ class VaultQueryAgent(BaseAgent):
             if "size_bytes" in m:
                 fs_items.append(f"{m['size_bytes']} bytes")
             if "word_count" in m:
-                fs_items.append(f"{m['word_count']} words")
+                fs_items.append(f"~{m['word_count']} words")
             if "modified" in m:
                 fs_items.append(f"modified {m['modified']}")
             if fs_items:
@@ -129,25 +252,49 @@ class VaultQueryAgent(BaseAgent):
 
         return "\n".join(lines)
 
+    @staticmethod
+    def _format_grep_results(results: list[dict]) -> str:
+        """Format grep search results into a concise text block."""
+        lines = []
+        for r in results:
+            header = (
+                f"- **{r['filename']}** (in {r['folder']}/) "
+                f"— {r['match_count']} match(es)"
+            )
+            lines.append(header)
+            for snippet in r.get("snippets", []):
+                lines.append(f"  > {snippet}")
+        return "\n".join(lines)
+
     def _build_prompt(
-        self, question: str, note_summaries: str, context: MessageContext
+        self,
+        question: str,
+        note_summaries: str,
+        context: MessageContext,
+        preamble: str | None = None,
     ) -> list[str]:
         """Build the vault-query prompt."""
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
 
+        data_description = preamble or (
+            "Below is a list of matching vault notes with their "
+            "filenames, file-system metadata (size in bytes, word "
+            "count, last modified date), and YAML frontmatter "
+            "properties.  Use this information to answer the "
+            "user's question.  If the metadata is insufficient, "
+            "say so."
+        )
+
         system = (
-            "You are a helpful assistant answering questions about the user's "
-            "Obsidian vault.  The vault is a personal knowledge base organised "
-            "into folders: Projects, Actions, Media, Reference, Inbox.\n\n"
+            "You are a helpful assistant answering questions about "
+            "the user's Obsidian vault.  The vault is a personal "
+            "knowledge base organised into folders: Projects, "
+            "Actions, Media, Reference, Memories, Inbox.\n\n"
             f"Current time: {current_time}\n\n"
-            "Below is a list of matching vault notes with their filenames, "
-            "file-system metadata (size in bytes, word count, last modified "
-            "date), and YAML frontmatter properties.  Use this information to "
-            "answer the user's question.  If the metadata is insufficient, "
-            "say so.\n\n"
-            "Respond in concise, conversational plain text suitable for Slack.  "
-            "Use bullet points or numbered lists where appropriate.  Do NOT "
-            "return JSON."
+            f"{data_description}\n\n"
+            "Respond in concise, conversational plain text suitable "
+            "for Slack.  Use bullet points or numbered lists where "
+            "appropriate.  Do NOT return JSON."
         )
 
         parts = [
