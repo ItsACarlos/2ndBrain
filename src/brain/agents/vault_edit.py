@@ -59,6 +59,11 @@ Rules:
 """
 
 
+#: Maximum number of files that can be edited in a single request.
+#: Prevents accidental bulk damage from vague requests.
+MAX_BULK_EDITS = 10
+
+
 class VaultEditAgent(BaseAgent):
     """Modifies existing vault notes (frontmatter fields, bulk updates)."""
 
@@ -107,6 +112,17 @@ class VaultEditAgent(BaseAgent):
         if not edits:
             summary = edit_plan.get("summary", "No edits needed.")
             return AgentResult(response_text=summary, tokens_used=tokens)
+
+        # 2b. Guard against excessively large bulk edits
+        if len(edits) > MAX_BULK_EDITS:
+            return AgentResult(
+                response_text=(
+                    f"⚠️ That would modify {len(edits)} files, but the "
+                    f"safety limit is {MAX_BULK_EDITS}. Please narrow "
+                    "your request or target specific files."
+                ),
+                tokens_used=tokens,
+            )
 
         # 3. Apply edits
         results = self._apply_edits(context.vault, edits)

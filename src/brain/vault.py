@@ -252,14 +252,23 @@ class Vault:
     def find_note(self, filename: str, folder: str | None = None) -> Path | None:
         """Locate a note by exact filename, optionally limited to a folder.
 
+        The resolved path is verified to remain under the vault root
+        to prevent path-traversal attacks (e.g. ``../secrets.md``).
+
         Returns the absolute path, or ``None`` if not found.
         """
         if folder:
-            candidate = self.base_path / folder / filename
+            candidate = (self.base_path / folder / filename).resolve()
+            if not candidate.is_relative_to(self.base_path.resolve()):
+                logging.warning("Path traversal blocked: %s", filename)
+                return None
             return candidate if candidate.is_file() else None
 
         for cat in CATEGORIES:
-            candidate = self.base_path / cat / filename
+            candidate = (self.base_path / cat / filename).resolve()
+            if not candidate.is_relative_to(self.base_path.resolve()):
+                logging.warning("Path traversal blocked: %s", filename)
+                return None
             if candidate.is_file():
                 return candidate
         return None

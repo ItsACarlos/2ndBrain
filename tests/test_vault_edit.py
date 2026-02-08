@@ -187,6 +187,20 @@ class TestFindNote:
 
         assert vault.find_note("nonexistent.md") is None
 
+    def test_path_traversal_blocked(self, tmp_path: Path) -> None:
+        vault = _make_vault(tmp_path)
+        # A file that exists outside the vault category folders
+        secret = tmp_path / "vault" / "secret.md"
+        secret.write_text("top secret", encoding="utf-8")
+
+        # Traversal via folder argument
+        assert vault.find_note("../../secret.md", folder="Actions") is None
+
+    def test_path_traversal_blocked_no_folder(self, tmp_path: Path) -> None:
+        vault = _make_vault(tmp_path)
+        # The filename alone tries to escape
+        assert vault.find_note("../../../etc/passwd") is None
+
 
 # ---------------------------------------------------------------------------
 # VaultEditAgent
@@ -346,3 +360,53 @@ class TestVaultEditAgent:
         assert "1 file(s)" in text  # updated
         assert "1 file(s) could not" in text
         assert "bad.md" in text
+
+    @patch.object(VaultEditAgent, "_plan_edits")
+    def test_bulk_edit_cap_rejects_large_batch(
+        self, mock_plan: MagicMock, tmp_path: Path
+    ) -> None:
+        """Edits exceeding MAX_BULK_EDITS are refused."""
+        from brain.agents.vault_edit import MAX_BULK_EDITS
+
+        vault = _make_vault(tmp_path)
+        # Create enough notes so candidates are found
+        for i in range(MAX_BULK_EDITS + 5):
+            _write_note(
+                vault,
+                "Actions",
+                f"note-{i}.md",
+                f"---\ntitle: Note {i}\npriority: low\n---\nBody\n",
+            )
+
+        # Gemini "plans" more edits than the cap allows
+        mock_plan.return_value = (
+            {
+                "edits": [
+                    {
+                        "filename": f"note-{i}.md",
+                        "folder": "Actions",
+                        "frontmatter_updates": {"priority": "1 - Urgent"},
+                    }
+                    for i in range(MAX_BULK_EDITS + 5)
+                ],
+                "summary": f"Set priority on {MAX_BULK_EDITS + 5} files.",
+            },
+            600,
+        )
+
+        agent = VaultEditAgent()
+        context = MessageContext(
+            raw_text="set everything to urgent",
+            attachment_context=[],
+            vault=vault,
+            router_data={"search_terms": ["note"]},
+        )
+
+        result = agent.handle(context)
+
+        assert result.response_text is not None
+        assert "safety limit" in result.response_text.lower()
+        # Verify NO files were actually modified
+        for i in range(MAX_BULK_EDITS + 5):
+            path = vault.base_path / "Actions" / f"note-{i}.md"
+            assert "priority: low" in path.read_text(encoding="utf-8")
