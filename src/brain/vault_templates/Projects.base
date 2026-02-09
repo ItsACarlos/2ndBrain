@@ -1,7 +1,7 @@
 filters:
   and:
-    - 'file.inFolder("Projects")'
-    - 'file.ext == "md"'
+    - file.inFolder("Projects")
+    - file.ext == "md"
 properties:
   priority:
     displayName: Priority
@@ -14,6 +14,11 @@ views:
     name: All Projects
     order:
       - file.name
-      - note.priority
-      - note.date
-      - note.tags
+      - priority
+      - date
+      - tags
+    sort:
+      - property: date
+        direction: DESC
+      - property: priority
+        direction: ASC

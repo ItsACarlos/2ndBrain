@@ -1,6 +1,6 @@
 filters:
   and:
-    - 'file.ext == "md"'
+    - file.ext == "md"
 properties:
   category:
     displayName: Category
@@ -14,40 +14,98 @@ properties:
     displayName: Project
   date:
     displayName: Date
+  note.category:
+    displayName: category
 views:
   - type: table
-    name: "Today's Actions"
+    name: Today's Actions
     filters:
       and:
-        - 'file.inFolder("Actions")'
-        - 'status != "done"'
-        - 'status != "completed"'
+        - file.inFolder("Actions")
+        - status != "done"
+        - status != "completed"
     order:
       - file.name
-      - note.due_date
-      - note.priority
-      - note.status
-      - note.project
+      - due_date
+      - date
+      - priority
+      - status
+      - project
+    sort:
+      - property: date
+        direction: DESC
+      - property: priority
+        direction: ASC
+    columnSize:
+      note.due_date: 139
+      note.date: 120
   - type: table
     name: Recent Captures
     filters:
       and:
-        - 'file.mtime > now() - "7 days"'
+        - file.mtime > now() - "7 days"
     order:
       - file.name
       - file.mtime
-      - note.category
-      - note.project
+      - category
+      - project
+    sort:
+      - property: file.mtime
+        direction: DESC
   - type: table
     name: All Open Actions
     filters:
       and:
-        - 'file.inFolder("Actions")'
-        - 'status != "done"'
-        - 'status != "completed"'
+        - file.inFolder("Actions")
+        - status != "done"
+        - status != "completed"
     order:
       - file.name
-      - note.due_date
-      - note.priority
-      - note.status
-      - note.project
+      - due_date
+      - priority
+      - status
+      - project
+    sort:
+      - property: priority
+        direction: ASC
+  - type: table
+    name: Reference
+    filters:
+      and:
+        - category == "Reference"
+    order:
+      - file.name
+      - date
+      - tags
+      - file.mtime
+      - original_path
+    sort:
+      - property: date
+        direction: DESC
+    columnSize:
+      note.date: 148
+  - type: table
+    name: Media
+    filters:
+      and:
+        - file.folder.startsWith("Media")
+    order:
+      - file.name
+      - date
+      - media_type
+      - status
+      - url
+      - tags
+    sort:
+      - property: status
+        direction: DESC
+      - property: date
+        direction: DESC
+      - property: url
+        direction: ASC
+      - property: category
+        direction: ASC
+    columnSize:
+      note.date: 148
+      note.media_type: 59
+      note.status: 106
