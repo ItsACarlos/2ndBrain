@@ -77,7 +77,7 @@ Use spaces between words. Strip characters that are unsafe for filenames
 ## YAML Frontmatter
 Every note MUST start with YAML frontmatter containing AT MINIMUM:
 - `title`: A short descriptive title
-- `date`: Current date/time in ISO format (from the Context section)
+- `date`: Current date/time in ISO 8601 datetime format (YYYY-MM-DDTHH:MM:SS, e.g. `2025-02-09T14:30:00`). This MUST include the time component.
 - `source: slack`
 - `category`: The folder name (Projects/Actions/Media/Reference/Memories/Inbox)
 - `tags`: A YAML list of relevant tags (kebab-case, no spaces — e.g. `phishing-prevention` not `phishing prevention`)

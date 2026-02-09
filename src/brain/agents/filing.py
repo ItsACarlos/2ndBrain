@@ -103,7 +103,7 @@ class FilingAgent(BaseAgent):
         """Build the full filing prompt with project context."""
 
         system_prompt = FILING_PROMPT_FILE.read_text(encoding="utf-8")
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+        current_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
         context_parts = [f"Current time: {current_time}"]
 

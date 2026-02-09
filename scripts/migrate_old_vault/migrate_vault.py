@@ -242,7 +242,7 @@ def classify_with_gemini(
 
 
 def _force_frontmatter_date(content: str, file_date: str) -> str:
-    """Override the date field in YAML frontmatter with the original file's mtime."""
+    """Override the date field in YAML frontmatter with the original file's mtime in ISO 8601 datetime format."""
     # Match the frontmatter block
     fm_match = re.match(r"^(---\n)(.*?)(\n---)", content, re.DOTALL)
     if not fm_match:
@@ -390,12 +390,12 @@ def main():
             save_progress(progress)
             continue
 
-        # Get file modification date
+        # Get file modification date in ISO 8601 datetime format
         try:
             mtime = md_file.stat().st_mtime
-            file_date = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
+            file_date = datetime.fromtimestamp(mtime).strftime("%Y-%m-%dT%H:%M:%S")
         except Exception:
-            file_date = "2025-01-01"
+            file_date = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
         log.info("[%d/%d] Processing: %s", i + 1, len(md_files), rel_path)
 

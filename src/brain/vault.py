@@ -132,7 +132,8 @@ class Vault:
         Args:
             folder: Category folder name (validated against whitelist).
             slug: Descriptive slug for the filename (e.g. 'fix-garden-fence').
-            content: Full markdown content including YAML frontmatter.
+            content: Full markdown content including YAML frontmatter. Must include
+                a 'date' field in ISO 8601 datetime format (YYYY-MM-DDTHH:MM:SS).
 
         Returns:
             Path to the saved file.
