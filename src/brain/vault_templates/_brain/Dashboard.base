@@ -22,8 +22,10 @@ views:
     filters:
       and:
         - file.inFolder("Actions")
-        - status != "done"
         - status != "completed"
+        - and:
+            - status != "done"
+            - status != "deferred"
     order:
       - file.name
       - due_date
