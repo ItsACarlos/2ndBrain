@@ -32,10 +32,10 @@ views:
       - status
       - project
     sort:
-      - property: date
-        direction: DESC
       - property: priority
         direction: ASC
+      - property: date
+        direction: DESC
     columnSize:
       note.due_date: 139
       note.date: 120
@@ -97,6 +97,8 @@ views:
       - url
       - tags
     sort:
+      - property: media_type
+        direction: ASC
       - property: status
         direction: DESC
       - property: date

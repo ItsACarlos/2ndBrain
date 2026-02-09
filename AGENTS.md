@@ -84,7 +84,11 @@ src/brain/
     ├── Reference.base
     ├── Memories.base
     ├── Dashboard.base
-    └── Dashboard.md
+    ├── Dashboard.md
+    └── .obsidian/
+        └── plugins/
+            └── metadata-menu/
+                └── data.json  # Metadata Menu preset fields config
 service-units/
 ├── brain.service                   # Slack listener (server, template with @@PROJECT_DIR@@)
 ├── rclone-2ndbrain.service         # rclone FUSE mount (server)
@@ -111,6 +115,7 @@ scripts/
 ├── setup-systemd-creds.sh # Encrypt rclone password via systemd-creds (≥256)
 ├── setup-gpg-pass.sh    # GPG + pass fallback for older systemd
 ├── start-brain.sh       # Unlock GPG and start services (GPG mode only)
+├── pull-vault-templates.sh  # Pull edited .base files from vault back to src
 └── restart.sh           # Convenience script for systemd reload/restart/logs
 Dockerfile           # Container build for the Slack listener
 pyproject.toml       # uv/pip metadata and dependencies
@@ -268,6 +273,20 @@ plugin) for dashboards and filtered views. The source templates live in
 `src/brain/vault_templates/` and are synced to the vault on startup by
 `vault.py._ensure_base_files()` whenever the source file is newer than
 the vault copy (timestamp comparison via `shutil.copy2`).
+
+### Metadata Menu Configuration
+The vault includes a **Metadata Menu** plugin configuration at
+`.obsidian/plugins/metadata-menu/data.json` in the templates directory.
+This file defines preset fields with dropdown options for properties:
+
+- **`status`**: todo, in_progress, done, completed, cancelled, to_consume,
+  consuming, consumed
+- **`priority`**: 1 - Urgent, 2 - High, 3 - Medium, 4 - Low
+- **`media_type`**: book, film, tv, podcast, article, video, music
+
+These fields provide dropdown menus when editing frontmatter properties in
+Obsidian, improving data consistency. The configuration is synced to new
+vaults automatically via the template system.
 
 ### .base File Format
 Obsidian `.base` files are YAML documents with three top-level keys:

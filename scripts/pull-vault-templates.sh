@@ -29,6 +29,7 @@ declare -a FILES=(
     "Memories/Memories.base:Memories.base"
     "_brain/Dashboard.base:Dashboard.base"
     "Dashboard.md:Dashboard.md"
+    ".obsidian/plugins/metadata-menu/data.json:.obsidian/plugins/metadata-menu/data.json"
 )
 
 echo -e "${GREEN}Pulling vault templates from ${VAULT_ROOT}${NC}"

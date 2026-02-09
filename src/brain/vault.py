@@ -23,6 +23,8 @@ _TEMPLATE_MAP: dict[str, str] = {
     "Memories.base": "Memories/Memories.base",
     "Dashboard.base": "_brain/Dashboard.base",
     "Dashboard.md": "Dashboard.md",
+    ".obsidian/plugins/metadata-menu/data.json": ".obsidian/plugins/"
+    "metadata-menu/data.json",
 }
 
 # Category folders and their descriptions

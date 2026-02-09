@@ -1,0 +1,88 @@
+{
+  "presetFields": [
+    {
+      "name": "status",
+      "id": "preset-status-001",
+      "type": "Select",
+      "path": "",
+      "options": {
+        "sourceType": "ValuesList",
+        "valuesList": {
+          "0": "todo",
+          "1": "in_progress",
+          "2": "done",
+          "3": "completed",
+          "4": "cancelled",
+          "5": "to_consume",
+          "6": "consuming",
+          "7": "consumed"
+        }
+      }
+    },
+    {
+      "name": "priority",
+      "id": "preset-priority-001",
+      "type": "Select",
+      "path": "",
+      "options": {
+        "sourceType": "ValuesList",
+        "valuesList": {
+          "0": "1 - Urgent",
+          "1": "2 - High",
+          "2": "3 - Medium",
+          "3": "4 - Low"
+        }
+      }
+    },
+    {
+      "name": "media_type",
+      "id": "preset-mediatype-001",
+      "type": "Select",
+      "path": "",
+      "options": {
+        "sourceType": "ValuesList",
+        "valuesList": {
+          "0": "book",
+          "1": "film",
+          "2": "tv",
+          "3": "podcast",
+          "4": "article",
+          "5": "video",
+          "6": "music"
+        }
+      }
+    }
+  ],
+  "fileClassQueries": [],
+  "displayFieldsInContextMenu": true,
+  "globallyIgnoredFields": [],
+  "classFilesPath": "",
+  "isAutosuggestEnabled": true,
+  "fileClassAlias": "fileClass",
+  "settingsVersion": "5.0",
+  "firstDayOfWeek": 1,
+  "enableLinks": true,
+  "enableTabHeader": true,
+  "enableEditor": true,
+  "enableBacklinks": true,
+  "enableStarred": true,
+  "enableFileExplorer": true,
+  "enableSearch": true,
+  "enableProperties": true,
+  "tableViewMaxRecords": 20,
+  "frontmatterListDisplay": "asArray",
+  "fileClassExcludedFolders": [],
+  "showIndexingStatusInStatusBar": true,
+  "fileIndexingExcludedFolders": [],
+  "fileIndexingExcludedExtensions": [
+    ".excalidraw.md"
+  ],
+  "fileIndexingExcludedRegex": [],
+  "frontmatterOnly": false,
+  "showFileClassSelectInModal": true,
+  "chooseFileClassAtFileCreation": false,
+  "autoInsertFieldsAtFileClassInsertion": false,
+  "fileClassIcon": "package",
+  "isAutoCalculationEnabled": true,
+  "disableDataviewPrompt": false
+}
