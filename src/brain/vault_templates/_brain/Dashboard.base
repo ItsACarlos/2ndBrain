@@ -40,7 +40,7 @@ views:
       note.due_date: 115
       note.date: 132
       note.priority: 114
-      note.project: 119
+      note.project: 265
   - type: table
     name: Recent Captures
     filters:

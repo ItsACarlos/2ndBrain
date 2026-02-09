@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pull .base files and Dashboard.md from the vault into the project
+# Refresh template files from the vault back into the project
 # Useful for capturing manual edits made in Obsidian back to source
 
 set -euo pipefail
@@ -20,82 +20,47 @@ if [[ ! -d "${VAULT_ROOT}" ]]; then
     exit 1
 fi
 
-# Array of non-.base files to pull: vault_path:template_name
-declare -a FILES=(
-    "Dashboard.md:Dashboard.md"
-    ".obsidian/plugins/metadata-menu/data.json:.obsidian/plugins/metadata-menu/data.json"
-    ".obsidian/snippets/base-width.css:.obsidian/snippets/base-width.css"
-)
-
-echo -e "${GREEN}Pulling vault templates from ${VAULT_ROOT}${NC}"
-echo "Target: ${TEMPLATE_DIR}"
+echo -e "${GREEN}Refreshing templates from ${VAULT_ROOT}${NC}"
 echo ""
 
 pulled_count=0
 skipped_count=0
-missing_count=0
 
-# Pull all .base files from _brain/
-echo "Pulling .base files from _brain/..."
-if [[ -d "${VAULT_ROOT}/_brain" ]]; then
-    while IFS= read -r -d '' source_file; do
-        filename=$(basename "${source_file}")
-        dest_file="${TEMPLATE_DIR}/${filename}"
+# Find all files in vault_templates and sync from corresponding vault locations
+while IFS= read -r -d '' template_file; do
+    # Get the relative path from TEMPLATE_DIR
+    rel_path="${template_file#${TEMPLATE_DIR}/}"
 
-        if [[ -f "${dest_file}" ]]; then
-            source_time=$(stat -c %Y "${source_file}" 2>/dev/null || stat -f %m "${source_file}" 2>/dev/null)
-            dest_time=$(stat -c %Y "${dest_file}" 2>/dev/null || stat -f %m "${dest_file}" 2>/dev/null)
-
-            if [[ ${source_time} -le ${dest_time} ]]; then
-                echo -e "  Skip: ${filename} (project version is newer)"
-                skipped_count=$((skipped_count + 1))
-                continue
-            fi
-        fi
-
-        cp -p "${source_file}" "${dest_file}"
-        echo -e "${GREEN}✓ Pulled: ${filename}${NC}"
-        pulled_count=$((pulled_count + 1))
-    done < <(find "${VAULT_ROOT}/_brain" -maxdepth 1 -name "*.base" -type f -print0)
-fi
-
-# Pull other files
-for file_pair in "${FILES[@]}"; do
-    IFS=':' read -r vault_path template_name <<< "${file_pair}"
-
+    # Use relative path as vault source path (files in _brain/ folder reflect vault's _brain/ folder)
+    vault_path="${rel_path}"
     source_file="${VAULT_ROOT}/${vault_path}"
-    dest_file="${TEMPLATE_DIR}/${template_name}"
 
+    # Skip if source doesn't exist in vault
     if [[ ! -f "${source_file}" ]]; then
-        echo -e "${YELLOW}⚠ Missing: ${vault_path}${NC}"
-        missing_count=$((missing_count + 1))
         continue
     fi
 
-    # Check if destination exists and compare timestamps
-    if [[ -f "${dest_file}" ]]; then
+    # Compare timestamps
+    if [[ -f "${template_file}" ]]; then
         source_time=$(stat -c %Y "${source_file}" 2>/dev/null || stat -f %m "${source_file}" 2>/dev/null)
-        dest_time=$(stat -c %Y "${dest_file}" 2>/dev/null || stat -f %m "${dest_file}" 2>/dev/null)
+        dest_time=$(stat -c %Y "${template_file}" 2>/dev/null || stat -f %m "${template_file}" 2>/dev/null)
 
         if [[ ${source_time} -le ${dest_time} ]]; then
-            echo -e "  Skip: ${template_name} (project version is newer)"
+            echo -e "  Skip: ${rel_path} (project version is newer)"
             skipped_count=$((skipped_count + 1))
             continue
         fi
     fi
 
     # Copy with timestamp preservation
-    mkdir -p "$(dirname "${dest_file}")"
-    cp -p "${source_file}" "${dest_file}"
-    echo -e "${GREEN}✓ Pulled: ${template_name}${NC}"
+    mkdir -p "$(dirname "${template_file}")"
+    cp -p "${source_file}" "${template_file}"
+    echo -e "${GREEN}✓${NC} ${rel_path}"
     pulled_count=$((pulled_count + 1))
-done
+done < <(find "${TEMPLATE_DIR}" -type f -print0)
 
 echo ""
-echo -e "${GREEN}Summary:${NC}"
-echo -e "  Pulled: ${pulled_count}"
-echo -e "  Skipped: ${skipped_count}"
-[[ ${missing_count} -gt 0 ]] && echo -e "  ${YELLOW}Missing: ${missing_count}${NC}" || true
+echo -e "${GREEN}Summary: Pulled ${pulled_count}, Skipped ${skipped_count}${NC}"
 
 if [[ ${pulled_count} -gt 0 ]]; then
     echo ""
