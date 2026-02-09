@@ -96,7 +96,8 @@ def main():
                     new_date_str = parsed_date.strftime("%Y-%m-%dT%H:%M:%S")
                 except ValueError:
                     print(
-                        f"⚠️  Skipped {relative_path}: Unrecognized date format '{old_date_str}'"
+                        f"⚠️  Skipped {relative_path}: Unrecognized date"
+                        f" format '{old_date_str}'"
                     )
                     skipped_count += 1
                     continue
@@ -127,7 +128,7 @@ def main():
             continue
 
     print("\n" + "=" * 60)
-    print(f"Summary:")
+    print("Summary:")
     print(f"  Updated: {updated_count}")
     print(f"  Skipped: {skipped_count}")
     print(f"  Total:   {len(md_files)}")

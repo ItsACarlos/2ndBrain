@@ -67,6 +67,6 @@ and `{body}` placeholders are filled per-file.
 Used by the standalone migration script to convert notes from an old
 Obsidian vault into the new vault's structure and frontmatter schema.
 
-```{literalinclude} ../../migrate_old_vault/migrate_prompt.md
+```{literalinclude} ../../scripts/migrate_old_vault/migrate_prompt.md
 :language: markdown
 ```

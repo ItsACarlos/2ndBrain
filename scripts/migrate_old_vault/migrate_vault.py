@@ -242,7 +242,8 @@ def classify_with_gemini(
 
 
 def _force_frontmatter_date(content: str, file_date: str) -> str:
-    """Override the date field in YAML frontmatter with the original file's mtime in ISO 8601 datetime format."""
+    """Override the date field in YAML frontmatter with the original file's
+    mtime in ISO 8601 datetime format."""
     # Match the frontmatter block
     fm_match = re.match(r"^(---\n)(.*?)(\n---)", content, re.DOTALL)
     if not fm_match:
