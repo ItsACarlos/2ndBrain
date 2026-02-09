@@ -34,13 +34,13 @@ views:
       - status
       - project
     sort:
+      - property: date
+        direction: ASC
       - property: priority
         direction: ASC
-      - property: date
-        direction: DESC
     columnSize:
       note.due_date: 115
-      note.date: 132
+      note.date: 162
       note.priority: 114
       note.project: 265
   - type: table
@@ -50,12 +50,18 @@ views:
         - file.mtime > now() - "7 days"
     order:
       - file.name
+      - date
       - file.mtime
       - category
       - project
+      - tags
     sort:
-      - property: file.mtime
+      - property: date
         direction: DESC
+    columnSize:
+      note.date: 157
+      file.mtime: 154
+      note.project: 139
   - type: table
     name: All Open Actions
     filters:
@@ -88,35 +94,6 @@ views:
         direction: DESC
     columnSize:
       note.date: 148
-  - type: table
-    name: Media
-    filters:
-      and:
-        - file.folder.startsWith("Media")
-    order:
-      - file.name
-      - date
-      - media_type
-      - status
-      - url
-      - tags
-    sort:
-      - property: media_type
-        direction: ASC
-      - property: status
-        direction: DESC
-      - property: date
-        direction: DESC
-      - property: url
-        direction: ASC
-      - property: category
-        direction: ASC
-    columnSize:
-      note.date: 148
-      note.media_type: 59
-      note.status: 106
-  - type: table
-    name: View
   - type: table
     name: Projects
     order:

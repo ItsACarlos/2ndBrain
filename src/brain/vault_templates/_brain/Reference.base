@@ -15,5 +15,7 @@ views:
     order:
       - file.name
       - topic
-      - tags
       - date
+      - tags
+    columnSize:
+      note.date: 161

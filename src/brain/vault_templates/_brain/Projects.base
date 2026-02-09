@@ -22,3 +22,6 @@ views:
         direction: DESC
       - property: priority
         direction: ASC
+    columnSize:
+      note.priority: 108
+      note.date: 167

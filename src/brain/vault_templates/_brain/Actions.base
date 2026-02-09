@@ -1,7 +1,7 @@
 filters:
   and:
-    - 'file.inFolder("Actions")'
-    - 'file.ext == "md"'
+    - file.inFolder("Actions")
+    - file.ext == "md"
 properties:
   status:
     displayName: Status
@@ -16,19 +16,24 @@ views:
     name: Open Actions
     filters:
       and:
-        - 'status != "done"'
-        - 'status != "completed"'
+        - status != "done"
+        - status != "completed"
     order:
       - file.name
-      - note.due_date
-      - note.priority
-      - note.status
-      - note.project
+      - due_date
+      - priority
+      - status
+      - project
+      - date
+    columnSize:
+      note.due_date: 117
+      note.status: 89
+      note.project: 149
   - type: table
     name: All Actions
     order:
       - file.name
-      - note.due_date
-      - note.priority
-      - note.status
-      - note.project
+      - due_date
+      - priority
+      - status
+      - project

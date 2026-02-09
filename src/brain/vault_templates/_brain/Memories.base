@@ -21,8 +21,11 @@ views:
       - people
       - location
       - memory_date
-      - tags
       - date
+      - tags
     sort:
-      - property: memory_date
+      - property: date
         direction: DESC
+    columnSize:
+      note.people: 131
+      note.date: 112
