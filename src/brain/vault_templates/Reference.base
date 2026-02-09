@@ -1,7 +1,7 @@
 filters:
   and:
-    - 'file.inFolder("Reference")'
-    - 'file.ext == "md"'
+    - file.inFolder("Reference")
+    - file.ext == "md"
 properties:
   topic:
     displayName: Topic
@@ -14,6 +14,6 @@ views:
     name: All Reference
     order:
       - file.name
-      - note.topic
-      - note.tags
-      - note.date
+      - topic
+      - tags
+      - date

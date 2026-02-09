@@ -1,0 +1,16 @@
+/* Expand the page width for all bases files */
+.max-width div:has(table) {
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+/* Expand the page width for specific files e.g. Dashboard.md */
+.dashboard-full-width {
+    --file-line-width: 100% !important;
+    max-width: 95% !important;
+}
+
+.dashboard-full-width .markdown-source-view.mod-cm6 .cm-content,
+.dashboard-full-width .markdown-rendered {
+    max-width: 100% !important;
+}

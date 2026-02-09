@@ -37,8 +37,10 @@ views:
       - property: date
         direction: DESC
     columnSize:
-      note.due_date: 139
-      note.date: 120
+      note.due_date: 115
+      note.date: 132
+      note.priority: 114
+      note.project: 119
   - type: table
     name: Recent Captures
     filters:
@@ -111,3 +113,18 @@ views:
       note.date: 148
       note.media_type: 59
       note.status: 106
+  - type: table
+    name: View
+  - type: table
+    name: Projects
+    order:
+      - file.name
+      - date
+      - project
+      - tags
+    sort:
+      - property: date
+        direction: DESC
+    columnSize:
+      note.date: 139
+      note.project: 119

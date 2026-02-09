@@ -1,7 +1,7 @@
 filters:
   and:
-    - 'file.inFolder("Memories")'
-    - 'file.ext == "md"'
+    - file.inFolder("Memories")
+    - file.ext == "md"
 properties:
   people:
     displayName: People
@@ -18,8 +18,11 @@ views:
     name: All Memories
     order:
       - file.name
-      - note.people
-      - note.location
-      - note.memory_date
-      - note.tags
-      - note.date
+      - people
+      - location
+      - memory_date
+      - tags
+      - date
+    sort:
+      - property: memory_date
+        direction: DESC

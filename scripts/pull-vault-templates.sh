@@ -20,16 +20,11 @@ if [[ ! -d "${VAULT_ROOT}" ]]; then
     exit 1
 fi
 
-# Array of files to pull: vault_path:template_name
+# Array of non-.base files to pull: vault_path:template_name
 declare -a FILES=(
-    "Projects/Projects.base:Projects.base"
-    "Actions/Actions.base:Actions.base"
-    "Media/Media.base:Media.base"
-    "Reference/Reference.base:Reference.base"
-    "Memories/Memories.base:Memories.base"
-    "_brain/Dashboard.base:Dashboard.base"
     "Dashboard.md:Dashboard.md"
     ".obsidian/plugins/metadata-menu/data.json:.obsidian/plugins/metadata-menu/data.json"
+    ".obsidian/snippets/base-width.css:.obsidian/snippets/base-width.css"
 )
 
 echo -e "${GREEN}Pulling vault templates from ${VAULT_ROOT}${NC}"
@@ -40,6 +35,31 @@ pulled_count=0
 skipped_count=0
 missing_count=0
 
+# Pull all .base files from _brain/
+echo "Pulling .base files from _brain/..."
+if [[ -d "${VAULT_ROOT}/_brain" ]]; then
+    while IFS= read -r -d '' source_file; do
+        filename=$(basename "${source_file}")
+        dest_file="${TEMPLATE_DIR}/${filename}"
+
+        if [[ -f "${dest_file}" ]]; then
+            source_time=$(stat -c %Y "${source_file}" 2>/dev/null || stat -f %m "${source_file}" 2>/dev/null)
+            dest_time=$(stat -c %Y "${dest_file}" 2>/dev/null || stat -f %m "${dest_file}" 2>/dev/null)
+
+            if [[ ${source_time} -le ${dest_time} ]]; then
+                echo -e "  Skip: ${filename} (project version is newer)"
+                skipped_count=$((skipped_count + 1))
+                continue
+            fi
+        fi
+
+        cp -p "${source_file}" "${dest_file}"
+        echo -e "${GREEN}✓ Pulled: ${filename}${NC}"
+        pulled_count=$((pulled_count + 1))
+    done < <(find "${VAULT_ROOT}/_brain" -maxdepth 1 -name "*.base" -type f -print0)
+fi
+
+# Pull other files
 for file_pair in "${FILES[@]}"; do
     IFS=':' read -r vault_path template_name <<< "${file_pair}"
 
@@ -65,6 +85,7 @@ for file_pair in "${FILES[@]}"; do
     fi
 
     # Copy with timestamp preservation
+    mkdir -p "$(dirname "${dest_file}")"
     cp -p "${source_file}" "${dest_file}"
     echo -e "${GREEN}✓ Pulled: ${template_name}${NC}"
     pulled_count=$((pulled_count + 1))

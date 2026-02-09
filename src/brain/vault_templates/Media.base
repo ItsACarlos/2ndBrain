@@ -1,7 +1,7 @@
 filters:
   and:
-    - 'file.inFolder("Media")'
-    - 'file.ext == "md"'
+    - file.inFolder("Media")
+    - file.ext == "md"
 properties:
   media_type:
     displayName: Type
@@ -16,23 +16,24 @@ properties:
 views:
   - type: table
     name: All Media
-    groupBy:
-      property: note.media_type
-      direction: ASC
     order:
       - file.name
-      - note.media_type
-      - note.creator
-      - note.priority
-      - note.status
-      - note.url
+      - media_type
+      - date
+      - creator
+      - priority
+      - status
+      - url
+    sort:
+      - property: date
+        direction: DESC
   - type: table
     name: To Consume
     filters:
       and:
-        - 'status == "to_consume"'
+        - status == "to_consume"
     order:
       - file.name
-      - note.media_type
-      - note.creator
-      - note.priority
+      - media_type
+      - creator
+      - priority
