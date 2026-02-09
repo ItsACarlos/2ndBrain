@@ -1,0 +1,24 @@
+filters:
+  and:
+    - file.inFolder("Inbox")
+    - file.ext == "md"
+properties:
+  title:
+    displayName: Title
+  tags:
+    displayName: Tags
+  date:
+    displayName: Date
+  category:
+    displayName: Category
+views:
+  - type: table
+    name: All Inbox
+    order:
+      - file.name
+      - date
+      - category
+      - tags
+    columnSize:
+      note.date: 161
+      note.category: 120

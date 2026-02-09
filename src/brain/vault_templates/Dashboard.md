@@ -1,7 +1,10 @@
 ---
 cssclasses: dashboard-full-width
 ---
+
 ![[_brain/Dashboard.base]]
+
+![[_brain/Inbox.base]]
 
 > [!important]- Projects
 > ![[_brain/Projects.base]]
