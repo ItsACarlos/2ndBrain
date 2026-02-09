@@ -49,7 +49,8 @@ sudo dnf install rclone fuse3 pass
 rclone version
 ```
 
----
+(rhel-centos-8-upgrade-rclone)=
+### RHEL/CentOS 8: Upgrade rclone
 
 ## 2. Configuration Strategy
 

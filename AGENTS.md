@@ -442,6 +442,72 @@ The Slack app requires Socket Mode enabled with an app-level token
 After adding or changing scopes, you must **reinstall the app** to the
 workspace for changes to take effect. See `docs/setup_slack_app.md`.
 
+## Documentation
+
+This project uses **MyST Markdown** (MyST = Markedly Structured Text) for
+documentation, built with Sphinx. MyST extends CommonMark Markdown with
+powerful features for technical documentation.
+
+### Adding New Documentation
+
+- **ALWAYS** add new documentation files to the appropriate index:
+  - Explanations → `docs/explanations.md` toctree
+  - How-to guides → `docs/how-to.md` toctree
+  - Reference → `docs/reference.md` toctree
+  - Tutorials → `docs/tutorials.md` toctree
+
+### Cross-References and Anchors
+
+MyST provides explicit anchor targets for cross-referencing specific sections:
+
+**Creating an anchor:**
+```markdown
+(my-anchor-name)=
+## Section Title
+```
+
+The anchor must be on its own line immediately before the heading, using
+the syntax `(anchor-name)=`.
+
+**Linking to an anchor:**
+```markdown
+See the [section title](path/to/file.md#my-anchor-name) for details.
+```
+
+Or within the same file:
+```markdown
+See [below](#my-anchor-name) for details.
+```
+
+**Example from this project:**
+
+In [`docs/how-to/setup_rclone.md`](docs/how-to/setup_rclone.md):
+```markdown
+(rhel-centos-8-upgrade-rclone)=
+### RHEL/CentOS 8: Upgrade rclone
+```
+
+Referenced from [`docs/tutorials/quickstart.md`](docs/tutorials/quickstart.md):
+```markdown
+See the [rclone Setup guide](../how-to/setup_rclone.md#rhel-centos-8-upgrade-rclone)
+for instructions.
+```
+
+**Key points:**
+- Anchor names should be lowercase-with-hyphens
+- Anchors work across files (use relative paths)
+- Running `tox -e docs` will report missing cross-references
+
+### Building Documentation
+
+```bash
+# Build HTML docs
+tox -e docs
+
+# Check for warnings (missing references, etc.)
+tox -e docs 2>&1 | grep WARNING
+```
+
 ## Boundaries
 - Never hardcode API keys; always use `os.environ` or `.env`.
 - Do not use `sudo` unless explicitly requested for system package installs.

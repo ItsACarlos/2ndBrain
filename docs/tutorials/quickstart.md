@@ -37,9 +37,8 @@ that sleeps is fine.
 
 ```{important}
 **RHEL/CentOS 8 users**: The default repository has rclone 1.57.0, which
-lacks the `bisync` command. You must upgrade to a newer version. See the
-[rclone Setup guide](../how-to/setup_rclone.md#rhel-centos-8-upgrade-rclone)
-for instructions.
+lacks the `bisync` command. You must upgrade to a newer version. See
+[rclone Setup: RHEL/CentOS 8 Upgrade](../how-to/setup_rclone.md) for instructions.
 ```
 
 ## 1. Clone and install
