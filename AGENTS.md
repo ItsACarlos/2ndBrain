@@ -57,84 +57,19 @@ The system supports two deployment modes via `install.sh`:
   Obsidian proper inotify events. rclone mount does NOT generate
   inotify events — this is why bisync is required for Obsidian.
 
-## Project Structure
-```
-src/brain/
-├── __init__.py      # Package marker
-├── __main__.py      # python -m src.brain.app entrypoint
-├── app.py           # Main entrypoint — env validation, component wiring
-├── listener.py      # Slack event handlers, attachment download/processing
-├── processor.py     # Gemini utility functions (JSON extraction, token injection)
-├── vault.py         # All Obsidian vault I/O, folder management, .base files
-├── briefing.py      # Daily morning summary posted to Slack
-├── prompt.md        # System prompt for the filing agent (Gemini)
-├── agents/          # Pluggable agent architecture
-│   ├── __init__.py      # Package exports: BaseAgent, AgentResult, MessageContext, Router
-│   ├── base.py          # BaseAgent ABC, AgentResult & MessageContext dataclasses
-│   ├── router.py        # Intent classifier — dispatches to registered agents
-│   ├── router_prompt.md # System prompt for the router's classification call
-│   ├── filing.py        # FilingAgent — classifies & archives content to vault
-│   ├── vault_query.py   # VaultQueryAgent — searches vault & answers questions
-│   ├── vault_edit.py    # VaultEditAgent — modifies frontmatter in existing notes
-│   └── memory.py        # MemoryAgent — add/remove/list persistent directives
-└── vault_templates/     # Obsidian .base and .md templates synced to the vault
-    ├── Projects.base
-    ├── Actions.base
-    ├── Media.base
-    ├── Reference.base
-    ├── Memories.base
-    ├── Dashboard.base
-    ├── Dashboard.md
-    └── .obsidian/
-        └── plugins/
-            └── metadata-menu/
-                └── data.json  # Metadata Menu preset fields config
-service-units/
-├── brain.service                   # Slack listener (server, template with @@PROJECT_DIR@@)
-├── rclone-2ndbrain.service         # rclone FUSE mount (server)
-├── rclone-2ndbrain-bisync.service  # rclone bisync oneshot (workstation)
-└── rclone-2ndbrain-bisync.timer    # 30s bisync timer (workstation)
-docs/
-├── index.md                   # Sphinx landing page (includes README)
-├── conf.py                    # Sphinx configuration
-├── explanations/
-│   ├── architecture.md        # Agent architecture & design documentation
-│   └── decisions.md           # Architecture Decision Records (ADRs)
-├── how-to/
-│   ├── contribute.md          # Contributing guide
-│   ├── setup_rclone.md        # rclone setup guide
-│   └── setup_slack_app.md     # Slack app creation + OAuth scopes guide
-└── tutorials/
-    └── installation.md        # Installation tutorial
-migrate_old_vault/
-├── migrate_prompt.md          # System prompt for AI-assisted vault migration
-└── migrate_vault.py           # Standalone script for migrating an old vault
-scripts/
-├── install.sh       # Two-mode installer (--server / --workstation)
-├── uninstall.sh     # Remove services and credential stores
-├── setup-systemd-creds.sh # Encrypt rclone password via systemd-creds (≥256)
-├── setup-gpg-pass.sh    # GPG + pass fallback for older systemd
-├── start-brain.sh       # Unlock GPG and start services (GPG mode only)
-├── pull-vault-templates.sh  # Pull edited .base files from vault back to src
-└── restart.sh           # Convenience script for systemd reload/restart/logs
-Dockerfile           # Container build for the Slack listener
-pyproject.toml       # uv/pip metadata and dependencies
-.env                 # Runtime secrets (not committed)
-.env.template        # Template for .env
-```
+## Code Organization
+- **`src/brain/`** — Main Python package
+  - `app.py` — Entrypoint, wires components together
+  - `listener.py` — Slack event handlers
+  - `vault.py` — All vault I/O and template syncing
+  - `processor.py` — Gemini JSON extraction, token injection
+  - `agents/` — Pluggable agent architecture (see below)
+  - `vault_templates/` — `.base` files and Obsidian configs
+- **`service-units/`** — systemd service definitions
+- **`scripts/`** — Installation, credential setup, utilities
+- **`docs/`** — Sphinx documentation (MyST Markdown)
 
-## Vault Categories
-Notes are filed into exactly one of these folders inside the vault root:
-
-| Folder        | Purpose                                              |
-|---------------|------------------------------------------------------|
-| Projects      | Project docs, snippets, whiteboard photos, ideas     |
-| Actions       | Tasks/to-dos with due dates and status tracking      |
-| Media         | Books, films, TV, podcasts, articles, videos         |
-| Reference     | How-tos, explanations, technical notes               |
-| Memories      | Personal memories, family photos, experiences        |
-| Attachments   | Binary files (images, PDFs) linked from other notes  |
-| Inbox         | Fallback for truly ambiguous captures                |
+See `vault.py` for vault categories. See `app.py` for agent registration.
 
 ## Architectural Rules
 1. **Model version:** Always use `gemini-2.5-flash`. Do not downgrade.
@@ -184,23 +119,9 @@ questions like:
 ```
 Slack message → listener.py (attachment prep + thread history fetch)
   → Router._classify()  — lightweight Gemini call → intent JSON
-  → intent == "question"  → direct answer (no second call)
-  → intent == "file"      → FilingAgent.handle()  → save to vault
-  → intent == "vault_query" → VaultQueryAgent.handle() → search + answer
-  → intent == "vault_edit"  → VaultEditAgent.handle()  → modify existing notes
-  → intent == "memory"     → MemoryAgent.handle()  → add/remove/list directives
-  → intent == <new agent> → YourAgent.handle()
+  → intent dispatches to registered agent (see app.py for registry)
   ← reply posted in-thread (if message was threaded)
 ```
-
-### Registered Agents
-
-| Intent        | Agent            | Purpose                                     |
-|---------------|------------------|---------------------------------------------|
-| `file`        | `FilingAgent`    | Classify and archive content into the vault |
-| `vault_query` | `VaultQueryAgent`| Search vault notes and answer questions     |
-| `vault_edit`  | `VaultEditAgent` | Modify frontmatter fields in existing notes |
-| `memory`      | `MemoryAgent`    | Add, remove, or list persistent directives  |
 
 ### Adding a New Agent
 
@@ -237,26 +158,6 @@ Slack message → listener.py (attachment prep + thread history fetch)
 3. **Optionally** add extra `router_data` fields by extending the
    router prompt in `agents/router_prompt.md` with a new intent block.
 
-4. **Update this file** with the new intent in the Registered Agents
-   table above.
-
-## Directives System (Persistent Memory)
-
-Directives are persistent behaviour rules stored in `_brain/directives.md`
-inside the vault. Users manage them via Slack:
-
-- **Add:** "remember: always tag cooking recipes with #cooking"
-- **Remove:** "forget directive #2"
-- **List:** "list directives" or "what are your directives"
-
-Directives are loaded by `Vault.get_directives()` and injected into the
-system prompts of the **router**, **filing agent**, and **vault query
-agent** via `Router.format_directives()`. This ensures all agents follow
-the user's rules when classifying, filing, and answering queries.
-
-The `_brain/` directory is created automatically on startup. Directives
-persist across restarts because they live in the vault (synced via rclone).
-
 ## Gemini Integration Details
 - **Prompt:** Lives in `src/brain/prompt.md` — edit this to change
   classification rules, frontmatter schema, or output format.
@@ -267,14 +168,9 @@ persist across restarts because they live in the vault (synced via rclone).
 - **Token injection:** `_inject_tokens()` parses YAML frontmatter properly
   and inserts `tokens_used` into the existing block.
 
-## Obsidian Bases
-The vault uses **Obsidian Bases** (native `.base` files, NOT the Dataview
-plugin) for dashboards and filtered views. The source templates live in
-`src/brain/vault_templates/` and are synced to the vault on startup by
-`vault.py._ensure_base_files()` whenever the source file is newer than
-the vault copy (timestamp comparison via `shutil.copy2`).
+## Obsidian Configuration
 
-### Metadata Menu Configuration
+### Metadata Menu Preset Fields
 The vault includes a **Metadata Menu** plugin configuration at
 `.obsidian/plugins/metadata-menu/data.json` in the templates directory.
 This file defines preset fields with dropdown options for properties:
@@ -288,127 +184,44 @@ These fields provide dropdown menus when editing frontmatter properties in
 Obsidian, improving data consistency. The configuration is synced to new
 vaults automatically via the template system.
 
-### .base File Format
-Obsidian `.base` files are YAML documents with three top-level keys:
+### .base File Conventions
+### .base File Conventions
+The vault uses **Obsidian Bases** (native `.base` files) for dashboards.
+Templates live in `src/brain/vault_templates/` and are synced to the vault
+by `vault.py._ensure_base_files()` via timestamp comparison.
 
-```yaml
-filters:                          # MUST use and:/or:/not: — NEVER a plain list
-  and:
-    - 'file.inFolder("Actions")'
-    - 'file.ext == "md"'
+**CRITICAL filter syntax:** All `filters:` blocks MUST be an object with
+exactly one key: `and:`, `or:`, or `not:`. A plain YAML list will cause
+an Obsidian parse error. Even single conditions must be wrapped:
 
-properties:                       # Columns from YAML frontmatter
-  title:
-    displayName: Title
-  status:
-    displayName: Status
-
-views:                            # One or more table/board views
-  - type: table
-    name: "Open Actions"
-    filters:                      # Per-view filters also require and:/or:/not:
-      and:
-        - 'status != "done"'
-        - 'status != "completed"'
-    order:                        # Column display order
-      - note.due_date
-      - note.priority
-      - note.title
-    groupBy:                      # Optional grouping
-      property: note.media_type
-      direction: ASC
-```
-
-### Filter Syntax
-**CRITICAL:** All `filters:` blocks — both top-level and per-view — MUST be
-an object with exactly one key: `and:`, `or:`, or `not:`. A plain YAML list
-under `filters:` will cause an Obsidian parse error:
-> "filters" may only have one of an "and", "or", or "not" keys.
-
-Even a single filter condition must be wrapped:
 ```yaml
 filters:
   and:
     - 'file.ext == "md"'
 ```
 
-Available filter expressions:
-- `file.inFolder("FolderName")` — match files in a specific vault folder
-- `file.ext == "md"` — file extension check
-- `file.mtime > now() - "7 days"` — recency filter
-- `status != "done"` — frontmatter property comparison
-
-### Property References
-- `note.<property>` — references a YAML frontmatter key
-- `file.mtime` — file modification time
-- `file.name` — filename
-
-### Generated .base Files
-| File                        | Purpose                                     |
-|-----------------------------|---------------------------------------------|
-| `Projects/Projects.base`   | All project notes sorted by priority/date   |
-| `Actions/Actions.base`     | "Open Actions" + "All Actions" views        |
-| `Media/Media.base`         | Grouped by media_type, "To Consume" filter  |
-| `Reference/Reference.base` | All reference notes by topic                |
-| `Memories/Memories.base`   | Personal memories by people/location        |
-| `Dashboard.base`           | Master: Today's Actions, Recent, All Open   |
-
 When adding new categories or frontmatter fields, update both
 `src/brain/prompt.md` (so Gemini produces them) and the corresponding
 `_*_base()` method in `vault.py` (so the dashboard displays them).
-Delete the old `.base` file from the vault to trigger regeneration.
 
-## Service Architecture
+## Service Management
 
-### brain.service (server only)
-- **Template:** `service-units/brain.service` uses `@@PROJECT_DIR@@`
-  placeholders, substituted by `install.sh` via `sed` at install time.
-- **Mount dependency:** `Requires=rclone-2ndbrain.service` — won't start
-  if rclone fails. `ExecStartPre` polls for up to 30s waiting for the
-  mount directory to appear.
-- **Env loading:** `.env` is loaded both by systemd (`EnvironmentFile`)
-  and Python (`load_dotenv()`).
-- **Invocation:** `.venv/bin/python -m src.brain.app` (also available as
-  `brain` console script via `pyproject.toml [project.scripts]`).
+**Server mode:** `brain.service` listens for Slack messages and writes to an
+rclone FUSE mount. `Requires=rclone-2ndbrain.service` ensures mount is ready.
 
-### rclone-2ndbrain.service (server only)
-- FUSE mount with `--vfs-cache-mode full`, `--poll-interval 15s`,
-  `--dir-cache-time 5s`.
-- Uses `--password-command` to read the rclone config password.
-  The command varies by credential method:
-  - **systemd-creds:** `systemd-creds decrypt --user --name=rclone-config-pass ~/.config/2ndbrain/rclone-config-pass.cred -`
-  - **GPG + pass:** `pass rclone/gdrive-vault`
-- `ExecStop` does a clean `fusermount -u`.
+**Workstation mode:** `rclone-2ndbrain-bisync.timer` syncs every 30s.
+Bisync creates real local files (inotify events for Obsidian), unlike rclone
+mount. First run auto-executes `--resync` to establish baseline from Google Drive.
 
-### rclone-2ndbrain-bisync.service + .timer (workstation only)
-- `Type=oneshot` — runs bisync and exits (fired by timer every 30s).
-- `--resilient --recover --conflict-resolve newer` for robustness.
-- **Initial sync:** `ExecStartPre` checks for bisync state and runs
-  `--resync` automatically on first execution to establish the baseline
-  from Google Drive. No manual intervention needed.
-- The vault is downloaded to `~/Documents/2ndBrain/2ndBrainVault/` on
-  the first run.
+**Stale mount recovery:** `fusermount -uz ~/Documents/2ndBrain` then restart.
 
-### Stale mount recovery
-If rclone crashes and leaves a dead FUSE mount ("Transport endpoint not
-connected"), use: `fusermount -uz ~/Documents/2ndBrain` then restart
-the service.
-
-## Installation
-1. **rclone remote:** Configure via `rclone config` — see
-   `docs/setup_rclone.md`.
-2. **Install services:** `./scripts/install.sh --server` or `./scripts/install.sh --workstation`.
-3. **Set up credentials (pick one):**
-   - **systemd ≥ 256:** `./scripts/setup-systemd-creds.sh` — encrypts the rclone
-     password so services auto-start on boot.
-   - **Older systemd:** `./scripts/setup-gpg-pass.sh` — stores the password in
-     GPG-encrypted `pass`. After each reboot, run `./scripts/start-brain.sh`.
-4. **Slack app (server only):** Create the app and get tokens — see
-   `docs/setup_slack_app.md`. Fill in `.env` from `.env.template`.
-5. **Enable linger (server only):** `sudo loginctl enable-linger $USER`
-   so services run on boot without a login session.
-6. **Uninstall:** `./scripts/uninstall.sh` removes services and credentials
-   (useful for re-testing deployment from scratch).
+### Installation
+1. Configure rclone remote (see [setup_rclone.md](docs/how-to/setup_rclone.md))
+2. Run `./scripts/install.sh --server` or `./scripts/install.sh --workstation`
+3. Set up credentials: `./scripts/setup-systemd-creds.sh` (systemd ≥256) or
+   `./scripts/setup-gpg-pass.sh` (older systemd + GPG)
+4. **Server only:** Create Slack app (see [setup_slack_app.md](docs/how-to/setup_slack_app.md)), fill `.env`
+5. **Server only:** `sudo loginctl enable-linger $USER` for auto-start on boot
 
 ## Common Workflows
 - **After any code change:** Always run
@@ -425,50 +238,17 @@ the service.
   restart the service — the newer timestamp triggers an automatic copy.
 - **Add a new vault category:** Add to `CATEGORIES` dict in `vault.py`,
   add classification rules in `prompt.md`, create a new template file in
-  `vault_templates/`, and add its mapping to `_TEMPLATE_MAP` in `vault.py`.
+  `vault_templates/`.
 - **Change the daily briefing time:** Set `BRIEFING_TIME=08:00` in `.env`.
   Set `BRIEFING_CHANNEL` to a Slack channel ID to enable it.
 - **Install deps:** `uv sync` (not pip install)
-- **Migrate to new machine:** Copy `~/.config/rclone/rclone.conf` from
-  the old machine, then run `./scripts/install.sh` and the appropriate credential
-  setup script. For GPG mode, also copy `~/.gnupg/` and
-  `~/.password-store/`. See `docs/setup_rclone.md` for details.
-
-## Environment Variables (.env)
-| Variable          | Required | Description                                |
-|-------------------|----------|--------------------------------------------|
-| SLACK_BOT_TOKEN   | Yes      | Slack bot token (xoxb-…)                   |
-| SLACK_APP_TOKEN   | Yes      | Slack app-level token (xapp-…)             |
-| GEMINI_API_KEY    | Yes      | Google Gemini API key                      |
-| BRIEFING_CHANNEL  | No       | Slack channel ID for daily briefing        |
-| BRIEFING_TIME     | No       | Time for daily briefing (default: "07:00") |
-
-## Slack Bot Configuration
-The Slack app requires Socket Mode enabled with an app-level token
-(scope: `connections:write`) and the `message.im` event subscription.
-
-### Required Bot Token Scopes
-| Scope                | Purpose                                        |
-|----------------------|------------------------------------------------|
-| `app_mentions:read`  | View messages that mention @2ndBrain           |
-| `channels:history`   | View messages in public channels app is in     |
-| `chat:write`         | Send messages as @2ndBrain                     |
-| `files:read`         | Download file attachments from conversations   |
-| `groups:history`     | View messages in private channels app is in    |
-| `im:history`         | View direct messages with the bot              |
-| `incoming-webhook`   | Post messages to specific channels (briefings) |
-
-After adding or changing scopes, you must **reinstall the app** to the
-workspace for changes to take effect. See `docs/setup_slack_app.md`.
 
 ## Documentation
-
 This project uses **MyST Markdown** (MyST = Markedly Structured Text) for
 documentation, built with Sphinx. MyST extends CommonMark Markdown with
 powerful features for technical documentation.
 
 ### Adding New Documentation
-
 - **ALWAYS** add new documentation files to the appropriate index:
   - Explanations → `docs/explanations.md` toctree
   - How-to guides → `docs/how-to.md` toctree
@@ -476,7 +256,6 @@ powerful features for technical documentation.
   - Tutorials → `docs/tutorials.md` toctree
 
 ### Cross-References and Anchors
-
 MyST provides explicit anchor targets for cross-referencing specific sections:
 
 **Creating an anchor:**
@@ -494,28 +273,10 @@ Note that no path to the file is required in the links as the anchors are global
 See the [section title](#my-anchor-name) for details.
 ```
 
-Or within the same file:
-```markdown
-See [below](#my-anchor-name) for details.
-```
-
-**Example from this project:**
-
-In [`docs/how-to/setup_rclone.md`](docs/how-to/setup_rclone.md):
-```markdown
-(rhel-centos-8-upgrade-rclone)=
-### RHEL/CentOS 8: Upgrade rclone
-```
-
-Referenced from [`docs/tutorials/quickstart.md`](docs/tutorials/quickstart.md):
-```markdown
-See the [rclone Setup guide](../how-to/setup_rclone.md#rhel-centos-8-upgrade-rclone)
-for instructions.
-```
 
 **Key points:**
 - Anchor names should be lowercase-with-hyphens
-- Anchors work across files (use relative paths)
+- Anchors work across files (with no paths)
 - Running `tox -e docs` will report missing cross-references
 
 ### Building Documentation
