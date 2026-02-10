@@ -12,7 +12,11 @@ YAML frontmatter into the correct vault folder.
 Source          | <https://github.com/gilesknap/2ndBrain>
 :---:           | :---:
 Documentation   | <https://gilesknap.github.io/2ndBrain>
+Quick Start     | <https://gilesknap.github.io/2ndBrain/main/tutorials/quickstart.html>
 Releases        | <https://github.com/gilesknap/2ndBrain/releases>
+Architecture    | <https://gilesknap.github.io/2ndBrain/main/explanations/architecture.html>
+Security        | <https://gilesknap.github.io/2ndBrain/main/explanations/security.html>
+Agent Prompts   | <https://gilesknap.github.io/2ndBrain/main/reference/prompts.html>
 
 ## Features
 
@@ -35,20 +39,6 @@ Releases        | <https://github.com/gilesknap/2ndBrain/releases>
 - **Obsidian Bases dashboards** — Auto-generated `.base` files for
   Projects, Actions, Media, Reference, and a master Dashboard
 
-## Architecture
-
-```
-Slack message → listener.py (attachment prep + thread history)
-  → Router (Gemini classification) → intent JSON
-  → FilingAgent | VaultQueryAgent | VaultEditAgent | MemoryAgent | Direct answer
-  → reply posted in Slack thread
-```
-
-See [Architecture](explanations/architecture.md) for the full design.
-
-See [Prompts](reference/prompts.md) for the Gemini system instructions.
-
-See [Security](explanations/security.md) for the threat model and hardening guide.
 
 ## Tech Stack
 
@@ -61,14 +51,17 @@ See [Security](explanations/security.md) for the threat model and hardening guid
 | Services      | systemd user units (no root required)           |
 | Secrets       | `systemd-creds` (≥ 256) or GPG + `pass` fallback |
 
-## Getting Started
+## Example Obsidian Dashboard
 
-See the [Quick Start](tutorials/quickstart.md) tutorial and the
-full [documentation](https://gilesknap.github.io/2ndBrain).
+This dashboard is created automatically by the 2ndBrain service and provides an overview of recent captures, open actions, and categorized notes.
 
-## License
+[![Example Obsidian Dashboard](https://gilesknap.github.io/2ndBrain/docs/images/postit.png)]
 
-See [LICENSE](https://github.com/gilesknap/2ndBrain/blob/main/LICENSE).
+## Example Slack Capture
+
+This image was captured from a Slack message, classified as a Project note, and filed into the vault with auto-generated, structured frontmatter and an attachment link.
+
+[![Example Slack Capture](https://gilesknap.github.io/2ndBrain/docs/images/postit.png)]
 
 <!-- README only content. Anything below this line won't be included in index.md -->
 
