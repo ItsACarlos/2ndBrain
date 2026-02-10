@@ -55,13 +55,14 @@ Agent Prompts   | <https://gilesknap.github.io/2ndBrain/main/reference/prompts.h
 
 This dashboard is created automatically by the 2ndBrain service and provides an overview of recent captures, open actions, and categorized notes.
 
-[![Example Obsidian Dashboard](https://gilesknap.github.io/2ndBrain/docs/images/postit.png)]
+<img width="1320" height="1689" alt="Screenshot From 2026-02-10 19-59-57" src="https://github.com/user-attachments/assets/ddbb122b-08d2-4b7b-92b7-f1570a542105" />
 
 ## Example Slack Capture
 
 This image was captured from a Slack message, classified as a Project note, and filed into the vault with auto-generated, structured frontmatter and an attachment link.
 
-[![Example Slack Capture](https://gilesknap.github.io/2ndBrain/docs/images/postit.png)]
+<img width="1320" height="1689" alt="Screenshot From 2026-02-10 20-00-58" src="https://github.com/user-attachments/assets/26aab6cd-37ab-4b12-be50-25a989fe19e4" />
+
 
 <!-- README only content. Anything below this line won't be included in index.md -->
 
