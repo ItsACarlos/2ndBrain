@@ -3,8 +3,8 @@
 app.py — Application entrypoint.
 
 Sets up logging, validates environment, initialises all components,
-and starts the Slack socket-mode listener with the daily briefing
-scheduler running in a background thread.
+and starts the Telegram bot with the daily briefing scheduler
+running in a background thread.
 """
 
 import logging
@@ -12,8 +12,7 @@ import os
 import sys
 
 from dotenv import load_dotenv
-from slack_bolt import App
-from slack_bolt.adapter.socket_mode import SocketModeHandler
+from telegram.ext import Application, MessageHandler, filters
 
 from .agents import Router
 from .agents.filing import FilingAgent
@@ -21,7 +20,7 @@ from .agents.memory import MemoryAgent
 from .agents.vault_edit import VaultEditAgent
 from .agents.vault_query import VaultQueryAgent
 from .briefing import start_scheduler
-from .listener import register_listeners
+from .listener import handle_message
 from .vault import Vault
 
 # ---------------------------------------------------------------------------
@@ -37,7 +36,7 @@ logging.basicConfig(
 # ---------------------------------------------------------------------------
 load_dotenv()
 
-REQUIRED_ENV = ["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN", "GEMINI_API_KEY"]
+REQUIRED_ENV = ["TELEGRAM_BOT_TOKEN", "GEMINI_API_KEY"]
 
 
 def _validate_env():
@@ -74,19 +73,27 @@ def main():
         default_agent="file",
     )
 
-    # Initialise Slack app
-    app = App(token=os.environ["SLACK_BOT_TOKEN"])
+    # Initialise Telegram bot
+    app = Application.builder().token(os.environ["TELEGRAM_BOT_TOKEN"]).build()
 
-    # Wire up event handlers
-    register_listeners(app, vault, router)
+    # Store shared objects for handlers to access
+    app.bot_data["vault"] = vault
+    app.bot_data["router"] = router
+
+    # Wire up message handler (handles text, photos, documents, voice)
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT | filters.PHOTO | filters.Document.ALL | filters.VOICE,
+            handle_message,
+        )
+    )
 
     # Start daily briefing scheduler in background thread
-    start_scheduler(app.client, vault)
+    start_scheduler(app.bot, vault)
 
-    # Start listening
-    logging.info("⚡️ 2ndBrain Collector starting up...")
-    handler = SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"])
-    handler.start()
+    # Start polling
+    logging.info("⚡️ 2ndBrain Collector starting up (Telegram)...")
+    app.run_polling()
 
 
 if __name__ == "__main__":

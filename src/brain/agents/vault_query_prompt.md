@@ -6,5 +6,5 @@ Current time: {current_time}
 
 {data_description}
 
-Respond in concise, conversational plain text suitable for Slack.  Use
+Respond in concise, conversational plain text suitable for messaging.  Use
 bullet points or numbered lists where appropriate.  Do NOT return JSON.

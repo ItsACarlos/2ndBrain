@@ -2,9 +2,10 @@
 briefing.py — Daily morning summary.
 
 Scans the vault for open actions, recent captures, and media backlog,
-then posts a concise summary to Slack at a configurable time.
+then posts a concise summary to Telegram at a configurable time.
 """
 
+import asyncio
 import logging
 import os
 import random
@@ -103,11 +104,13 @@ def _build_briefing(vault) -> str:
     return header + "\n\n".join(sections)
 
 
-def _run_briefing(client, vault, channel: str):
-    """Post the daily briefing to Slack."""
+def _run_briefing(bot, vault, chat_id: str):
+    """Post the daily briefing to Telegram."""
     try:
         message = _build_briefing(vault)
-        client.chat_postMessage(channel=channel, text=message)
+        asyncio.run(
+            bot.send_message(chat_id=chat_id, text=message, parse_mode="Markdown")
+        )
         logging.info("📬 Daily briefing posted")
     except Exception as e:
         logging.exception(f"Failed to post daily briefing: {e}")
@@ -122,27 +125,26 @@ def _scheduler_loop():
         time.sleep(30)
 
 
-def start_scheduler(client, vault):
+def start_scheduler(bot, vault):
     """
     Start the daily briefing scheduler in a background daemon thread.
 
-    Posts to the channel defined by BRIEFING_CHANNEL env var
-    (defaults to the bot's first DM or a configured channel).
+    Posts to the chat defined by BRIEFING_CHAT_ID env var.
     """
     briefing_time = os.environ.get("BRIEFING_TIME", "07:00")
-    channel = os.environ.get("BRIEFING_CHANNEL", "")
+    chat_id = os.environ.get("BRIEFING_CHAT_ID", "")
 
-    if not channel:
+    if not chat_id:
         logging.warning(
-            "BRIEFING_CHANNEL not set — daily briefing disabled. "
-            "Set it to a Slack channel ID to enable."
+            "BRIEFING_CHAT_ID not set — daily briefing disabled. "
+            "Set it to a Telegram chat ID to enable."
         )
         return
 
     schedule.every().day.at(briefing_time).do(
-        _run_briefing, client=client, vault=vault, channel=channel
+        _run_briefing, bot=bot, vault=vault, chat_id=chat_id
     )
 
     thread = threading.Thread(target=_scheduler_loop, daemon=True)
     thread.start()
-    logging.info(f"📅 Daily briefing scheduled at {briefing_time} → #{channel}")
+    logging.info(f"📅 Daily briefing scheduled at {briefing_time} → {chat_id}")

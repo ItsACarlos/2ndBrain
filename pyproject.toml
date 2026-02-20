@@ -10,12 +10,13 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-description = "Agentic Slack capture system for Obsidian vault"
+description = "Agentic Telegram capture system for Obsidian vault"
 dependencies = [
     "google-genai>=1.0.0",
+    "openai>=1.0.0",
     "python-dotenv>=1.2.1",
+    "python-telegram-bot>=21.0",
     "ruamel.yaml>=0.18.0",
-    "slack-bolt>=1.27.0",
     "requests>=2.31.0",
     "schedule>=1.2.0",
 ]
